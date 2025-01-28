@@ -1,4 +1,4 @@
-name: jupyterlab-extension-examples
+name: mcp-client-jupyter-chat
 channels:
   - conda-forge
 dependencies:
