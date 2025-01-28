@@ -1,0 +1,8 @@
+{
+  "jupyter.lab.shortcuts": [],
+  "title": "mcp-client-jupyter-chat",
+  "description": "mcp-client-jupyter-chat settings.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

@@ -1,0 +1,14 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v4.3.7
+_src_path: https://github.com/jupyterlab/extension-template
+author_email: inna.hrpr@gmail.com
+author_name: Inna
+has_binder: true
+has_settings: true
+kind: frontend
+labextension_name: mcp-client-jupyter-chat
+project_short_description: A JupyterLab extension for Chat with AI supporting MCP
+python_name: mcp_client_jupyter_chat
+repository: https://github.com/ihrpr/mcp-client-jupyter-chat.git
+test: true
+
