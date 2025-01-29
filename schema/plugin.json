@@ -4,18 +4,44 @@
   "description": "mcp-client-jupyter-chat settings.",
   "type": "object",
   "properties": {
-    "model": {
-      "type": "string",
-      "title": "LLM Model",
-      "description": "The Large Language Model to use for chat interactions",
-      "enum": ["gpt-4o", "claude-sonnet-3.5"],
-      "default": "claude-sonnet-3.5"
-    },
-    "apiKey": {
-      "type": "string",
-      "title": "API Key",
-      "description": "API key for accessing the language model service",
-      "default": ""
+    "models": {
+      "type": "array",
+      "title": "LLM Models",
+      "description": "List of available language models and their API keys",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Model Name",
+            "description": "Name of the language model"
+          },
+          "apiKey": {
+            "type": "string",
+            "title": "API Key",
+            "description": "API key for this model"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "title": "Default Model",
+            "description": "Whether this model should be used as default",
+            "default": false
+          }
+        },
+        "required": ["name", "apiKey"]
+      },
+      "default": [
+        {
+          "name": "gpt-4",
+          "apiKey": "please-set-your-api-key",
+          "isDefault": false
+        },
+        {
+          "name": "claude-sonnet-3.5",
+          "apiKey": "please-set-your-api-key",
+          "isDefault": true
+        }
+      ]
     }
   },
   "additionalProperties": false

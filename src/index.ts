@@ -29,20 +29,50 @@ const plugin: JupyterFrontEndPlugin<void> = {
   ) => {
     console.log('JupyterLab extension mcp-client-jupyter-chat is activated!');
 
-    // Default settings
-    let selectedModel: string | null = null;
-    let apiKey: string | null = null;
+    // Settings and model management
+    interface IModelConfig {
+      name: string;
+      apiKey: string;
+      isDefault: boolean;
+    }
+
+    let availableModels: IModelConfig[] = [];
+    let selectedModel: IModelConfig | null = null;
+
+    // Create model dropdown
+    const modelSelect = document.createElement('select');
+    modelSelect.classList.add('mcp-model-select');
+
+    const updateModelDropdown = () => {
+      modelSelect.innerHTML = '';
+      availableModels.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.name;
+        option.textContent = model.name;
+        option.selected = model === selectedModel;
+        modelSelect.appendChild(option);
+      });
+    };
+
+    modelSelect.addEventListener('change', () => {
+      selectedModel =
+        availableModels.find(m => m.name === modelSelect.value) || null;
+    });
 
     // Load and watch settings
     if (settingRegistry) {
       const loadSettings = (settings: ISettingRegistry.ISettings) => {
-        selectedModel = settings.get('model').composite as string;
-        apiKey = settings.get('apiKey').composite as string;
+        const modelsData = settings.get('models').composite;
+        availableModels = (
+          Array.isArray(modelsData) ? modelsData : []
+        ) as IModelConfig[];
+        selectedModel =
+          availableModels.find(m => m.isDefault) || availableModels[0] || null;
         console.log(
           'mcp-client-jupyter-chat settings loaded:',
-          `model: ${selectedModel}`,
-          `apiKey: ${apiKey}`
+          `models: ${availableModels.length}`
         );
+        updateModelDropdown();
       };
 
       settingRegistry
@@ -70,6 +100,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     const inputArea = document.createElement('div');
     inputArea.classList.add('mcp-input-area');
+
+    const inputWrapper = document.createElement('div');
+    inputWrapper.classList.add('mcp-input-wrapper');
 
     const input = document.createElement('textarea');
     input.placeholder = 'Message MCP v3!...';
@@ -188,7 +221,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
 
       try {
-        // TODO: Include settings in request metadata
+        // TODO later, use models and key
         const tools = await client.listTools();
         const tools_str = JSON.stringify(tools);
         addMessage(tools_str, false);
@@ -248,8 +281,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
     });
 
     // Assemble the interface
-    inputArea.appendChild(input);
-    inputArea.appendChild(sendButton);
+    inputWrapper.appendChild(input);
+    inputWrapper.appendChild(sendButton);
+    inputArea.appendChild(modelSelect);
+    inputArea.appendChild(inputWrapper);
     div.appendChild(chatArea);
     div.appendChild(inputArea);
     content.node.appendChild(div);
