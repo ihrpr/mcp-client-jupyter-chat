@@ -11,6 +11,8 @@ import { INotebookTracker } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { Assistant } from './assistant';
+import { IContentBlock } from './assistant';
 
 /**
  * Initialization data for the mcp-client-jupyter-chat extension.
@@ -34,6 +36,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
       name: string;
       apiKey: string;
       isDefault: boolean;
+    }
+
+    interface ISettings {
+      models: IModelConfig[];
     }
 
     let availableModels: IModelConfig[] = [];
@@ -66,12 +72,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // Load and watch settings
     if (settingRegistry) {
       const loadSettings = (settings: ISettingRegistry.ISettings) => {
-        const modelsData = settings.get('models').composite;
-        availableModels = (
-          Array.isArray(modelsData) ? modelsData : []
-        ) as IModelConfig[];
+        const settingsData = settings.composite as unknown as ISettings;
+        const models = settingsData?.models || [];
+        availableModels = Array.isArray(models) ? models : [];
         selectedModel =
           availableModels.find(m => m.isDefault) || availableModels[0] || null;
+
         console.log(
           'mcp-client-jupyter-chat settings loaded:',
           `models: ${availableModels.length}`
@@ -126,6 +132,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
     );
 
+    // Initialize assistant
+    let assistant: Assistant | null = null;
+
     let transport: SSEClientTransport | null = null;
     let isConnected = false;
     let isConnecting = false;
@@ -149,7 +158,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
         }
 
         // Create new transport with HTTP instead of HTTPS and no-cors mode
-        // Try to connect with explicit origin header
         const url = new URL('http://localhost:3002/sse');
         transport = new SSEClientTransport(url);
 
@@ -157,10 +165,20 @@ const plugin: JupyterFrontEndPlugin<void> = {
         isConnected = true;
         console.log('Successfully connected to MCP server');
 
+        // Get selected model's API key
+        if (!selectedModel) {
+          throw new Error('No model selected');
+        }
+
+        // Initialize assistant after successful connection
+        assistant = new Assistant(client, selectedModel.apiKey);
+        await assistant.initializeTools();
+
         transport.onclose = () => {
           console.log('SSE transport closed');
           isConnected = false;
           transport = null;
+          assistant = null;
         };
       } catch (error) {
         console.error('Failed to connect to MCP server:', error);
@@ -177,6 +195,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         }
         isConnected = false;
         transport = null;
+        assistant = null;
       } finally {
         isConnecting = false;
       }
@@ -196,11 +215,41 @@ const plugin: JupyterFrontEndPlugin<void> = {
     sendButton.classList.add('mcp-send-button');
 
     // Handle chat messages
-    const addMessage = (text: string, isUser: boolean) => {
+    const addMessage = (content: string | IContentBlock[], isUser: boolean) => {
       const messageDiv = document.createElement('div');
       messageDiv.classList.add('mcp-message');
       messageDiv.classList.add(isUser ? 'user' : 'assistant');
-      messageDiv.textContent = text;
+
+      if (typeof content === 'string') {
+        messageDiv.textContent = content;
+      } else {
+        // Handle content blocks
+        content.forEach(block => {
+          const blockDiv = document.createElement('div');
+
+          switch (block.type) {
+            case 'text':
+              blockDiv.textContent = block.text || '';
+              break;
+            case 'tool_use':
+              blockDiv.textContent = `[Using tool: ${block.name}]`;
+              blockDiv.classList.add('tool-use');
+              break;
+            case 'tool_result':
+              if (block.is_error) {
+                blockDiv.classList.add('error');
+              }
+              blockDiv.textContent =
+                typeof block.content === 'string'
+                  ? block.content
+                  : JSON.stringify(block.content);
+              break;
+          }
+
+          messageDiv.appendChild(blockDiv);
+        });
+      }
+
       chatArea.appendChild(messageDiv);
       chatArea.scrollTop = chatArea.scrollHeight;
     };
@@ -209,15 +258,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
       // Add user message
       addMessage(message, true);
 
-      if (!isConnected) {
+      if (!isConnected || !assistant) {
         addMessage(
           'Not connected to MCP server. Attempting to connect...',
           false
         );
         await initializeConnection();
-        if (!isConnected) {
+        if (!isConnected || !assistant) {
           addMessage(
-            'Failed to connect to MCP server. Please ensure the MCP server is running at http://localhost:3002',
+            'Failed to connect to MCP server. Please ensure the server is running at http://localhost:3002',
             false
           );
           return;
@@ -225,35 +274,25 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
 
       try {
-        // TODO later, use models and key
-        const tools = await client.listTools();
-        const tools_str = JSON.stringify(tools);
-        addMessage(tools_str, false);
+        // Process message through assistant
+        const response = await assistant.sendMessage(message);
+        addMessage(response, false);
 
-        // Check if message contains "modify"
+        // Handle notebook cell modification if needed
         if (message.toLowerCase().includes('modify')) {
           const notebook = notebookTracker.currentWidget?.content;
           if (notebook) {
             const activeCell = notebook.activeCell;
-            if (activeCell) {
-              if (activeCell.model.type === 'code') {
-                activeCell.model.sharedModel.setSource('Modified by MCP Chat');
-                // Add assistant response
-                addMessage("I've modified the current cell for you.", false);
-              }
+            if (activeCell && activeCell.model.type === 'code') {
+              activeCell.model.sharedModel.setSource('Modified by MCP Chat');
             }
           }
-        } else {
-          // Default assistant response
-          addMessage(
-            "I'm here to help! Let me know if you want to modify any cells.",
-            false
-          );
         }
       } catch (error) {
         console.error('Error handling message:', error);
         isConnected = false;
         transport = null;
+        assistant = null;
         addMessage(
           'Error communicating with MCP server. Please ensure the server is running and try again.',
           false
