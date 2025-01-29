@@ -1,5 +1,19 @@
 /*
     See the JupyterLab Developer Guide for useful CSS Patterns:
-
     https://jupyterlab.readthedocs.io/en/stable/developer/css.html
 */
+
+.mcp-chat {
+    background: var(--jp-layout-color1);
+    color: var(--jp-ui-font-color1);
+    height: 100%;
+}
+
+.mcp-message {
+    font-size: var(--jp-ui-font-size1);
+}
+
+.mcp-input {
+    font-size: var(--jp-ui-font-size1);
+    font-family: var(--jp-ui-font-family);
+}

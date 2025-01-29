@@ -3,6 +3,46 @@
   "title": "mcp-client-jupyter-chat",
   "description": "mcp-client-jupyter-chat settings.",
   "type": "object",
-  "properties": {},
+  "properties": {
+    "models": {
+      "type": "array",
+      "title": "LLM Models",
+      "description": "List of available language models and their API keys",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Model Name",
+            "description": "Name of the language model"
+          },
+          "apiKey": {
+            "type": "string",
+            "title": "API Key",
+            "description": "API key for this model"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "title": "Default Model",
+            "description": "Whether this model should be used as default",
+            "default": false
+          }
+        },
+        "required": ["name", "apiKey"]
+      },
+      "default": [
+        {
+          "name": "gpt-4",
+          "apiKey": "please-set-your-api-key",
+          "isDefault": false
+        },
+        {
+          "name": "claude-sonnet-3.5",
+          "apiKey": "please-set-your-api-key",
+          "isDefault": true
+        }
+      ]
+    }
+  },
   "additionalProperties": false
 }
