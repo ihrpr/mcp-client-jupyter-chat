@@ -7,46 +7,6 @@ from jupyter_server.utils import url_path_join
 from jupyter_server.base.handlers import JupyterHandler
 
 
-class ProxyHandler(JupyterHandler):
-    """Handler to proxy requests to MCP server with CORS headers"""
-
-    async def get(self):
-        """Proxy GET requests to MCP server"""
-        try:
-            # Set CORS headers
-            self.set_header(
-                "Access-Control-Allow-Origin", self.request.headers.get("Origin", "*")
-            )
-            self.set_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-            self.set_header("Access-Control-Allow-Headers", "*")
-            self.set_header("Cache-Control", "no-cache")
-
-            # Create SSE connection to MCP server
-            client = AsyncHTTPClient()
-            request = HTTPRequest(
-                url="http://localhost:3002/sse",
-                streaming_callback=lambda chunk: self.write(chunk),
-                request_timeout=0,
-            )
-
-            # Start streaming response
-            self.set_header("Content-Type", "text/event-stream")
-            self.set_header("Connection", "keep-alive")
-            await client.fetch(request)
-
-        except Exception as e:
-            raise HTTPError(500, str(e))
-
-    def options(self):
-        """Handle OPTIONS requests for CORS preflight"""
-        self.set_header(
-            "Access-Control-Allow-Origin", self.request.headers.get("Origin", "*")
-        )
-        self.set_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-        self.set_header("Access-Control-Allow-Headers", "*")
-        self.finish()
-
-
 try:
     from ._version import __version__
 except ImportError:
@@ -75,12 +35,6 @@ def _load_jupyter_server_extension(server_app):
     """
     name = "mcp_client_jupyter_chat"
     server_app.log.info(f"Registered {name} server extension")
-
-    # Register proxy handler
-    web_app = server_app.web_app
-    host_pattern = ".*$"
-    proxy_pattern = url_path_join(web_app.settings["base_url"], "/mcp/sse")
-    web_app.add_handlers(host_pattern, [(proxy_pattern, ProxyHandler)])
 
     # Get the current event loop or create a new one
     try:

@@ -73,15 +73,72 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
     );
 
-    // Connect to MCP server using SSE transport through proxy
-    const baseUrl = window.location.origin;
-    const jupyterBaseUrl =
-      document.querySelector('body')?.getAttribute('data-jupyter-api-url') ||
-      '/';
-    const sseUrl = new URL(`${baseUrl}${jupyterBaseUrl}mcp/sse`);
-    const transport = new SSEClientTransport(sseUrl);
+    let transport: SSEClientTransport | null = null;
+    let isConnected = false;
+    let isConnecting = false;
 
-    client.connect(transport).catch(console.error);
+    const initializeConnection = async () => {
+      if (isConnecting) {
+        return;
+      }
+
+      isConnecting = true;
+
+      try {
+        // Clean up existing transport if any
+        if (transport) {
+          try {
+            await transport.close();
+          } catch (error) {
+            console.log('Error closing existing transport:', error);
+          }
+          transport = null;
+        }
+
+        // Create new transport with HTTP instead of HTTPS and no-cors mode
+        // Try to connect with explicit origin header
+        const url = new URL('http://localhost:3003/sse');
+        transport = new SSEClientTransport(url, {
+          requestInit: {
+            mode: 'cors',
+            credentials: 'omit',
+            headers: {
+              Accept: 'text/event-stream'
+            }
+          }
+        });
+
+        await client.connect(transport);
+        isConnected = true;
+        console.log('Successfully connected to MCP server');
+
+        transport.onclose = () => {
+          console.log('SSE transport closed');
+          isConnected = false;
+          transport = null;
+        };
+      } catch (error) {
+        console.error('Failed to connect to MCP server:', error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        if (errorMessage.includes('CORS')) {
+          console.warn(
+            'CORS error detected. The MCP server must be configured with these headers:\n' +
+              '  Access-Control-Allow-Origin: http://localhost:8888\n' +
+              '  Access-Control-Allow-Methods: GET\n' +
+              '  Access-Control-Allow-Headers: Accept, Origin\n'
+          );
+        }
+        isConnected = false;
+        transport = null;
+      } finally {
+        isConnecting = false;
+      }
+    };
+
+    // Initial connection attempt
+    initializeConnection().catch(console.error);
 
     // Auto-resize textarea
     input.addEventListener('input', () => {
@@ -106,28 +163,53 @@ const plugin: JupyterFrontEndPlugin<void> = {
     const handleMessage = async (message: string) => {
       // Add user message
       addMessage(message, true);
-      addMessage('changes in the code!', false);
-      const tools = await client.listTools();
-      const tools_str = JSON.stringify(tools);
-      addMessage(tools_str, false);
 
-      // Check if message contains "modify"
-      if (message.toLowerCase().includes('modify')) {
-        const notebook = notebookTracker.currentWidget?.content;
-        if (notebook) {
-          const activeCell = notebook.activeCell;
-          if (activeCell) {
-            if (activeCell.model.type === 'code') {
-              activeCell.model.sharedModel.setSource('Modified by MCP Chat');
-              // Add assistant response
-              addMessage("I've modified the current cell for you.", false);
+      if (!isConnected) {
+        addMessage(
+          'Not connected to MCP server. Attempting to connect...',
+          false
+        );
+        await initializeConnection();
+        if (!isConnected) {
+          addMessage(
+            'Failed to connect to MCP server. Please ensure the MCP server is running at http://localhost:3003',
+            false
+          );
+          return;
+        }
+      }
+
+      try {
+        const tools = await client.listTools();
+        const tools_str = JSON.stringify(tools);
+        addMessage(tools_str, false);
+
+        // Check if message contains "modify"
+        if (message.toLowerCase().includes('modify')) {
+          const notebook = notebookTracker.currentWidget?.content;
+          if (notebook) {
+            const activeCell = notebook.activeCell;
+            if (activeCell) {
+              if (activeCell.model.type === 'code') {
+                activeCell.model.sharedModel.setSource('Modified by MCP Chat');
+                // Add assistant response
+                addMessage("I've modified the current cell for you.", false);
+              }
             }
           }
+        } else {
+          // Default assistant response
+          addMessage(
+            "I'm here to help! Let me know if you want to modify any cells.",
+            false
+          );
         }
-      } else {
-        // Default assistant response
+      } catch (error) {
+        console.error('Error handling message:', error);
+        isConnected = false;
+        transport = null;
         addMessage(
-          "I'm here to help! Let me know if you want to modify any cells.",
+          'Error communicating with MCP server. Please ensure the server is running and try again.',
           false
         );
       }
