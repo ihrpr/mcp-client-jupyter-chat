@@ -29,14 +29,28 @@ const plugin: JupyterFrontEndPlugin<void> = {
   ) => {
     console.log('JupyterLab extension mcp-client-jupyter-chat is activated!');
 
+    // Default settings
+    let selectedModel: string | null = null;
+    let apiKey: string | null = null;
+
+    // Load and watch settings
     if (settingRegistry) {
+      const loadSettings = (settings: ISettingRegistry.ISettings) => {
+        selectedModel = settings.get('model').composite as string;
+        apiKey = settings.get('apiKey').composite as string;
+        console.log(
+          'mcp-client-jupyter-chat settings loaded:',
+          `model: ${selectedModel}`,
+          `apiKey: ${apiKey}`
+        );
+      };
+
       settingRegistry
         .load(plugin.id)
         .then(settings => {
-          console.log(
-            'mcp-client-jupyter-chat settings loaded:',
-            settings.composite
-          );
+          loadSettings(settings);
+          // Watch for setting changes
+          settings.changed.connect(loadSettings);
         })
         .catch(reason => {
           console.error(
@@ -174,6 +188,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
 
       try {
+        // TODO: Include settings in request metadata
         const tools = await client.listTools();
         const tools_str = JSON.stringify(tools);
         addMessage(tools_str, false);

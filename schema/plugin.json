@@ -3,6 +3,20 @@
   "title": "mcp-client-jupyter-chat",
   "description": "mcp-client-jupyter-chat settings.",
   "type": "object",
-  "properties": {},
+  "properties": {
+    "model": {
+      "type": "string",
+      "title": "LLM Model",
+      "description": "The Large Language Model to use for chat interactions",
+      "enum": ["gpt-4o", "claude-sonnet-3.5"],
+      "default": "claude-sonnet-3.5"
+    },
+    "apiKey": {
+      "type": "string",
+      "title": "API Key",
+      "description": "API key for accessing the language model service",
+      "default": ""
+    }
+  },
   "additionalProperties": false
 }
