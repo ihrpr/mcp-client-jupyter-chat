@@ -98,15 +98,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         // Create new transport with HTTP instead of HTTPS and no-cors mode
         // Try to connect with explicit origin header
         const url = new URL('http://localhost:3003/sse');
-        transport = new SSEClientTransport(url, {
-          requestInit: {
-            mode: 'cors',
-            credentials: 'omit',
-            headers: {
-              Accept: 'text/event-stream'
-            }
-          }
-        });
+        transport = new SSEClientTransport(url);
 
         await client.connect(transport);
         isConnected = true;
