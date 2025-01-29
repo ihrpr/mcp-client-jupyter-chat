@@ -27,7 +27,8 @@ export class Assistant {
   constructor(mcpClient: Client, apiKey: string) {
     this.mcpClient = mcpClient;
     this.anthropic = new Anthropic({
-      apiKey: apiKey
+      apiKey: apiKey,
+      dangerouslyAllowBrowser: true
     });
   }
 
