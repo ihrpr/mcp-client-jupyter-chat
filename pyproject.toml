@@ -26,7 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-dependencies = ["mcp-server-jupyter>=0.1.6"]
+dependencies = ["mcp-server-jupyter>=0.1.8"]
 dynamic = ["version", "description", "authors", "urls", "keywords"]
 
 [tool.hatch.version]

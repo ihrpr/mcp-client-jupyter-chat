@@ -1,11 +1,6 @@
 import asyncio
 from mcp_server_jupyter import run
 
-from tornado.web import HTTPError
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
-from jupyter_server.utils import url_path_join
-from jupyter_server.base.handlers import JupyterHandler
-
 
 try:
     from ._version import __version__

@@ -97,7 +97,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
         // Create new transport with HTTP instead of HTTPS and no-cors mode
         // Try to connect with explicit origin header
-        const url = new URL('http://localhost:3003/sse');
+        const url = new URL('http://localhost:3002/sse');
         transport = new SSEClientTransport(url);
 
         await client.connect(transport);
@@ -164,7 +164,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         await initializeConnection();
         if (!isConnected) {
           addMessage(
-            'Failed to connect to MCP server. Please ensure the MCP server is running at http://localhost:3003',
+            'Failed to connect to MCP server. Please ensure the MCP server is running at http://localhost:3002',
             false
           );
           return;
