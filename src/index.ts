@@ -40,8 +40,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
     let selectedModel: IModelConfig | null = null;
 
     // Create model dropdown
+    const modelSelectWrapper = document.createElement('div');
+    modelSelectWrapper.classList.add('mcp-model-select');
     const modelSelect = document.createElement('select');
-    modelSelect.classList.add('mcp-model-select');
 
     const updateModelDropdown = () => {
       modelSelect.innerHTML = '';
@@ -49,6 +50,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
         const option = document.createElement('option');
         option.value = model.name;
         option.textContent = model.name;
+        if (model.name === 'gpt-4') {
+          option.textContent = 'GPT-4';
+        }
         option.selected = model === selectedModel;
         modelSelect.appendChild(option);
       });
@@ -280,11 +284,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
     });
 
+    // Create input container with border
+    const inputContainer = document.createElement('div');
+    inputContainer.classList.add('mcp-input-container');
+
     // Assemble the interface
-    inputWrapper.appendChild(input);
-    inputWrapper.appendChild(sendButton);
-    inputArea.appendChild(modelSelect);
+    inputContainer.appendChild(input);
+    inputContainer.appendChild(sendButton);
+    inputWrapper.appendChild(inputContainer);
+    modelSelectWrapper.appendChild(modelSelect);
     inputArea.appendChild(inputWrapper);
+    inputArea.appendChild(modelSelectWrapper);
     div.appendChild(chatArea);
     div.appendChild(inputArea);
     content.node.appendChild(div);
