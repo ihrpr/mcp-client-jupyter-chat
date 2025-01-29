@@ -57,6 +57,7 @@
         "watch:labextension": "jupyter labextension watch ."
     },
     "dependencies": {
+        "@anthropic-ai/sdk": "^0.36.3",
         "@jupyterlab/application": "^4.0.0",
         "@jupyterlab/services": "^7.3.4",
         "@jupyterlab/settingregistry": "^4.0.0",
