@@ -83,6 +83,7 @@ export class Assistant {
         // Handle tool use
         if (response.stop_reason === 'tool_use') {
           // Get the tool use from the last content item
+          // TODO: read text as well
           const toolUse = response.content[response.content.length - 1];
           if (toolUse.type !== 'tool_use' || !toolUse.name || !toolUse.input) {
             console.error('Invalid tool use response');
