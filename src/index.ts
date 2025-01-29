@@ -1,3 +1,5 @@
+import '../style/index.css';
+
 import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
@@ -56,7 +58,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     inputArea.classList.add('mcp-input-area');
 
     const input = document.createElement('textarea');
-    input.placeholder = 'Message MCP v2...';
+    input.placeholder = 'Message MCP v3!...';
     input.classList.add('mcp-input');
 
     // Initialize MCP client

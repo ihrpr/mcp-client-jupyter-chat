@@ -1,1 +1,99 @@
 @import url('base.css');
+
+.mcp-chat {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+  
+  .mcp-chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background: #faf9f7;
+    padding-bottom: calc(30vh + 24px);
+    height: calc(100vh - 60px);
+  }
+  
+  .mcp-message {
+    margin: 8px 0;
+    padding: 8px 12px;
+    border-radius: 12px;
+    max-width: 80%;
+  }
+  
+  .mcp-message.user {
+    background: #f0ece6;
+    margin-left: auto;
+    color: #444444;
+  }
+  
+  .mcp-message.assistant {
+    background: #ffffff;
+    margin-right: auto;
+    color: #444444;
+    border: 1px solid #e6e2dd;
+  }
+  
+  .mcp-input-area {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    background: #ffffff;
+    border-top: 1px solid #e6e2dd;
+    z-index: 1000;
+    min-height: 60px;
+    max-height: calc(30vh + 24px);
+    box-sizing: border-box;
+  }
+  
+  .mcp-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #e6e2dd;
+    background: #ffffff;
+    color: #444444;
+    border-radius: 20px;
+    resize: none;
+    min-height: 36px;
+    max-height: 30vh;
+    overflow-y: auto;
+    line-height: 1.4;
+    box-sizing: border-box;
+  }
+  
+  .mcp-input:focus {
+    outline: none;
+    border-color: #c4beb7;
+  }
+  
+  .mcp-send-button {
+    width: 32px;
+    height: 32px;
+    background: #f0ece6;
+    color: #444444;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  
+  .mcp-send-button::before {
+    content: "↑";
+    font-size: 18px;
+  }
+  
+  .mcp-send-button:hover {
+    background: #e6e2dd;
+  }
+  
+  .mcp-send-button:active {
+    background: #dcd8d3;
+  }
