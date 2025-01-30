@@ -22,14 +22,15 @@ export class Assistant {
   private mcpClient: Client;
   private tools: McpTool[] = [];
   private anthropic: Anthropic;
-  private MODEL_NAME = 'claude-3-sonnet-20240229';
+  private modelName: string;
 
-  constructor(mcpClient: Client, apiKey: string) {
+  constructor(mcpClient: Client, modelName: string, apiKey: string) {
     this.mcpClient = mcpClient;
     this.anthropic = new Anthropic({
       apiKey: apiKey,
       dangerouslyAllowBrowser: true
     });
+    this.modelName = modelName;
   }
 
   /**
@@ -64,7 +65,7 @@ export class Assistant {
       while (keepProcessing) {
         // Send request to Claude with full history
         const response = await this.anthropic.messages.create({
-          model: this.MODEL_NAME,
+          model: this.modelName,
           max_tokens: 4096,
           messages: this.messages.map(msg => ({
             role: msg.role,
@@ -102,6 +103,9 @@ export class Assistant {
               arguments: toolUse.input as Record<string, unknown>,
               _meta: {}
             });
+            console.log(
+              `====== Tool result ${JSON.stringify(toolResult)} ======`
+            );
 
             // Create tool result block
             const resultBlock: IContentBlock = {
@@ -133,7 +137,6 @@ export class Assistant {
             text
           };
           allResponseBlocks.push(textBlock);
-          console.log('\nTechNova Support: ' + text);
 
           // Add text response to history
           this.messages.push({

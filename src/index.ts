@@ -171,7 +171,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
         }
 
         // Initialize assistant after successful connection
-        assistant = new Assistant(client, selectedModel.apiKey);
+        assistant = new Assistant(
+          client,
+          selectedModel.name,
+          selectedModel.apiKey
+        );
         await assistant.initializeTools();
 
         transport.onclose = () => {

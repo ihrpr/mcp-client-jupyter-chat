@@ -123,3 +123,6 @@ dmypy.json
 
 # Yarn cache
 .yarn/
+
+# Ignore notebooks - mainly created for testing
+*.ipynb
