@@ -282,15 +282,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
         const response = await assistant.sendMessage(message);
         addMessage(response, false);
 
-        // Handle notebook cell modification if needed
-        if (message.toLowerCase().includes('modify')) {
-          const notebook = notebookTracker.currentWidget?.content;
-          if (notebook) {
-            const activeCell = notebook.activeCell;
-            if (activeCell && activeCell.model.type === 'code') {
-              activeCell.model.sharedModel.setSource('Modified by MCP Chat');
-            }
-          }
+        // Refresh the current notebook after assistant's response to load latest version from disk
+        if (notebookTracker.currentWidget) {
+          await notebookTracker.currentWidget.context.revert();
         }
       } catch (error) {
         console.error('Error handling message:', error);
