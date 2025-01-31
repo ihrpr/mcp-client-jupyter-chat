@@ -232,22 +232,45 @@ const plugin: JupyterFrontEndPlugin<void> = {
           const blockDiv = document.createElement('div');
 
           switch (block.type) {
-            case 'text':
+            case 'text': {
               blockDiv.textContent = block.text || '';
               break;
-            case 'tool_use':
+            }
+            case 'tool_use': {
               blockDiv.textContent = `[Using tool: ${block.name}]`;
               blockDiv.classList.add('tool-use');
               break;
-            case 'tool_result':
+            }
+            case 'tool_result': {
+              blockDiv.classList.add('tool-result');
               if (block.is_error) {
                 blockDiv.classList.add('error');
               }
-              blockDiv.textContent =
+
+              // Create header with expand/collapse button
+              const header = document.createElement('div');
+              header.classList.add('tool-result-header');
+              header.textContent = 'Tool Result';
+
+              const toggleButton = document.createElement('button');
+              toggleButton.classList.add('tool-result-toggle');
+              toggleButton.textContent = 'Expand';
+              toggleButton.onclick = () => {
+                const isExpanded = blockDiv.classList.toggle('expanded');
+                toggleButton.textContent = isExpanded ? 'Collapse' : 'Expand';
+              };
+              header.appendChild(toggleButton);
+              blockDiv.appendChild(header);
+
+              // Create content container
+              const content = document.createElement('div');
+              content.textContent =
                 typeof block.content === 'string'
                   ? block.content
-                  : JSON.stringify(block.content);
+                  : JSON.stringify(block.content, null, 2);
+              blockDiv.appendChild(content);
               break;
+            }
           }
 
           messageDiv.appendChild(blockDiv);
@@ -288,10 +311,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
         // Process streaming response
         for await (const block of assistant.sendMessage(message)) {
           console.log('Received block:', block);
-          let blockDiv: HTMLDivElement | null = null;
+          let blockDiv = document.createElement('div');
 
           switch (block.type) {
-            case 'text':
+            case 'text': {
               if (!currentTextBlock) {
                 currentTextBlock = document.createElement('div');
                 messageDiv.appendChild(currentTextBlock);
@@ -299,27 +322,50 @@ const plugin: JupyterFrontEndPlugin<void> = {
               currentTextBlock.textContent =
                 (currentTextBlock.textContent || '') + (block.text || '');
               break;
+            }
 
-            case 'tool_use':
+            case 'tool_use': {
               currentTextBlock = null;
               blockDiv = document.createElement('div');
               blockDiv.classList.add('tool-use');
               blockDiv.textContent = `[Using tool: ${block.name}]`;
               messageDiv.appendChild(blockDiv);
               break;
+            }
 
-            case 'tool_result':
+            case 'tool_result': {
               currentTextBlock = null;
               blockDiv = document.createElement('div');
+              blockDiv.classList.add('tool-result');
               if (block.is_error) {
                 blockDiv.classList.add('error');
               }
-              blockDiv.textContent =
+
+              // Create header with expand/collapse button
+              const header = document.createElement('div');
+              header.classList.add('tool-result-header');
+              header.textContent = 'Tool Result';
+
+              const toggleButton = document.createElement('button');
+              toggleButton.classList.add('tool-result-toggle');
+              toggleButton.textContent = 'Expand';
+              toggleButton.onclick = () => {
+                const isExpanded = blockDiv.classList.toggle('expanded');
+                toggleButton.textContent = isExpanded ? 'Collapse' : 'Expand';
+              };
+              header.appendChild(toggleButton);
+              blockDiv.appendChild(header);
+
+              // Create content container
+              const content = document.createElement('div');
+              content.textContent =
                 typeof block.content === 'string'
                   ? block.content
-                  : JSON.stringify(block.content);
+                  : JSON.stringify(block.content, null, 2);
+              blockDiv.appendChild(content);
               messageDiv.appendChild(blockDiv);
               break;
+            }
           }
 
           // Scroll to bottom as content arrives
