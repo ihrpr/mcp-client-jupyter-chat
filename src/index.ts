@@ -362,17 +362,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
                   : JSON.stringify(block.content, null, 2);
               blockDiv.appendChild(content);
               messageDiv.appendChild(blockDiv);
+              // Refresh the current notebook after tool calls
+              // as the notebook may have been modified
+              if (notebookTracker.currentWidget) {
+                await notebookTracker.currentWidget.context.revert();
+              }
               break;
             }
           }
 
           // Scroll to bottom as content arrives
           chatArea.scrollTop = chatArea.scrollHeight;
-        }
-
-        // Refresh the current notebook after assistant's response
-        if (notebookTracker.currentWidget) {
-          await notebookTracker.currentWidget.context.revert();
         }
       } catch (error) {
         console.error('Error handling message:', error);
