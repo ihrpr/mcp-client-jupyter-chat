@@ -1,24 +1,21 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { Tool as McpTool } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolResult,
+  Tool as McpTool
+} from '@modelcontextprotocol/sdk/types.js';
 import Anthropic from '@anthropic-ai/sdk';
 
-export interface IContentBlock {
+export interface IStreamEvent {
   type: 'text' | 'tool_use' | 'tool_result';
   text?: string;
-  tool_use_id?: string;
   name?: string;
   input?: Record<string, unknown>;
   content?: string;
   is_error?: boolean;
 }
 
-interface IMessage {
-  role: 'user' | 'assistant';
-  content: string | IContentBlock[];
-}
-
 export class Assistant {
-  private messages: IMessage[] = [];
+  private messages: Anthropic.Messages.MessageParam[] = [];
   private mcpClient: Client;
   private tools: McpTool[] = [];
   private anthropic: Anthropic;
@@ -49,7 +46,7 @@ export class Assistant {
   /**
    * Process a message and handle any tool use with streaming
    */
-  async *sendMessage(userMessage: string): AsyncGenerator<IContentBlock> {
+  async *sendMessage(userMessage: string): AsyncGenerator<IStreamEvent> {
     // Only add user message if it's not empty (empty means continuing from tool result)
     if (userMessage) {
       this.messages.push({
@@ -90,13 +87,17 @@ export class Assistant {
             if (event.content_block.type === 'tool_use') {
               currentToolName = event.content_block.name;
               currentToolID = event.content_block.id;
-              const toolRequesBlock: IContentBlock = {
+              const toolRequesBlock: Anthropic.ContentBlockParam = {
                 type: 'tool_use',
-                tool_use_id: currentToolID,
+                id: currentToolID,
                 name: currentToolName,
                 input: event.content_block.input as Record<string, unknown>
               };
-              yield toolRequesBlock;
+              yield {
+                type: 'tool_use',
+                name: currentToolName,
+                input: event.content_block.input as Record<string, unknown>
+              };
               this.messages.push({
                 role: 'user',
                 content: [toolRequesBlock]
@@ -116,35 +117,73 @@ export class Assistant {
               if (currentToolName !== '') {
                 try {
                   // Execute tool
-                  const toolResult = await this.mcpClient.callTool({
+                  const toolResult = (await this.mcpClient.callTool({
                     name: currentToolName,
                     arguments: JSON.parse(jsonDelta),
                     _meta: {}
+                  })) as CallToolResult;
+
+                  const content: Anthropic.ContentBlockParam[] = [];
+
+                  if (textDelta !== '') {
+                    content.push({
+                      type: 'text',
+                      text: textDelta
+                    } as Anthropic.TextBlockParam);
+                    yield {
+                      type: 'text',
+                      text: textDelta
+                    };
+                  }
+
+                  const toolContent = toolResult.content.map(content => {
+                    if (content.type === 'text') {
+                      return {
+                        type: 'text',
+                        text: content.text
+                      } as Anthropic.TextBlockParam;
+                    } else if (content.type === 'image') {
+                      return {
+                        type: 'image',
+                        source: {
+                          type: 'base64',
+                          media_type: content.mimeType as
+                            | 'image/jpeg'
+                            | 'image/png'
+                            | 'image/gif'
+                            | 'image/webp',
+                          data: content.data
+                        }
+                      } as Anthropic.ImageBlockParam;
+                    }
+                    return {
+                      type: 'text',
+                      text: 'content.text'
+                    } as Anthropic.TextBlockParam;
                   });
 
-                  // Create and yield tool result block
-                  const resultBlock: IContentBlock = {
+                  const toolResultBlock: Anthropic.ToolResultBlockParam = {
                     type: 'tool_result',
                     tool_use_id: currentToolID,
-                    content:
-                      typeof toolResult === 'string'
-                        ? toolResult
-                        : JSON.stringify(toolResult),
-                    text: textDelta
+                    content: toolContent
                   };
-                  yield resultBlock;
+
+                  content.push(toolResultBlock);
+                  yield {
+                    type: 'tool_result',
+                    name: currentToolName,
+                    content: JSON.stringify(toolContent)
+                  };
                   this.messages.push({
                     role: 'user',
-                    content: [resultBlock]
+                    content: content
                   });
                 } catch (error) {
                   console.error('Error executing tool:', error);
-                  const errorBlock: IContentBlock = {
+                  const errorBlock: Anthropic.ContentBlockParam = {
                     type: 'text',
-                    text: `Error executing tool ${currentToolName}: ${error}`,
-                    is_error: true
+                    text: `Error executing tool ${currentToolName}: ${error}`
                   };
-                  console.log('!! - Tool error:', errorBlock);
                   yield errorBlock;
                   keepProcessing = false;
                 } finally {
@@ -152,13 +191,12 @@ export class Assistant {
                   currentToolID = '';
                   jsonDelta = '';
                   textDelta = '';
-                  jsonDelta = '';
                 }
               }
             }
           } else if (event.type === 'message_stop') {
             // Add text response to history
-            const textBlock: IContentBlock = {
+            const textBlock: Anthropic.ContentBlockParam = {
               type: 'text',
               text: textDelta
             };
@@ -180,8 +218,7 @@ export class Assistant {
       console.error('Error processing message:', error);
       yield {
         type: 'text',
-        text: 'An error occurred while processing your message.',
-        is_error: true
+        text: 'An error occurred while processing your message.'
       };
     }
   }
@@ -189,7 +226,7 @@ export class Assistant {
   /**
    * Get the conversation history
    */
-  getHistory(): IMessage[] {
+  getHistory(): Anthropic.Messages.MessageParam[] {
     return this.messages;
   }
 

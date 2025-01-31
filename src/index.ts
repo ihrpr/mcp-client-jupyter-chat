@@ -12,9 +12,7 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { Assistant } from './assistant';
-import { IContentBlock } from './assistant';
-
-/**
+import { IStreamEvent } from './assistant'; /**
  * Initialization data for the mcp-client-jupyter-chat extension.
  */
 const plugin: JupyterFrontEndPlugin<void> = {
@@ -219,7 +217,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     sendButton.classList.add('mcp-send-button');
 
     // Handle chat messages
-    const addMessage = (content: string | IContentBlock[], isUser: boolean) => {
+    const addMessage = (content: string | IStreamEvent[], isUser: boolean) => {
       const messageDiv = document.createElement('div');
       messageDiv.classList.add('mcp-message');
       messageDiv.classList.add(isUser ? 'user' : 'assistant');
