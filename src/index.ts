@@ -278,11 +278,55 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
 
       try {
-        // Process message through assistant
-        const response = await assistant.sendMessage(message);
-        addMessage(response, false);
+        // Create message container for streaming response
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('mcp-message', 'assistant');
+        chatArea.appendChild(messageDiv);
 
-        // Refresh the current notebook after assistant's response to load latest version from disk
+        let currentTextBlock: HTMLDivElement | null = null;
+
+        // Process streaming response
+        for await (const block of assistant.sendMessage(message)) {
+          console.log('Received block:', block);
+          let blockDiv: HTMLDivElement | null = null;
+
+          switch (block.type) {
+            case 'text':
+              if (!currentTextBlock) {
+                currentTextBlock = document.createElement('div');
+                messageDiv.appendChild(currentTextBlock);
+              }
+              currentTextBlock.textContent =
+                (currentTextBlock.textContent || '') + (block.text || '');
+              break;
+
+            case 'tool_use':
+              currentTextBlock = null;
+              blockDiv = document.createElement('div');
+              blockDiv.classList.add('tool-use');
+              blockDiv.textContent = `[Using tool: ${block.name}]`;
+              messageDiv.appendChild(blockDiv);
+              break;
+
+            case 'tool_result':
+              currentTextBlock = null;
+              blockDiv = document.createElement('div');
+              if (block.is_error) {
+                blockDiv.classList.add('error');
+              }
+              blockDiv.textContent =
+                typeof block.content === 'string'
+                  ? block.content
+                  : JSON.stringify(block.content);
+              messageDiv.appendChild(blockDiv);
+              break;
+          }
+
+          // Scroll to bottom as content arrives
+          chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        // Refresh the current notebook after assistant's response
         if (notebookTracker.currentWidget) {
           await notebookTracker.currentWidget.context.revert();
         }

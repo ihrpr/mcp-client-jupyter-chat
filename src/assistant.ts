@@ -47,9 +47,9 @@ export class Assistant {
   }
 
   /**
-   * Process a message and handle any tool use
+   * Process a message and handle any tool use with streaming
    */
-  async sendMessage(userMessage: string): Promise<IContentBlock[]> {
+  async *sendMessage(userMessage: string): AsyncGenerator<IContentBlock> {
     // Only add user message if it's not empty (empty means continuing from tool result)
     if (userMessage) {
       this.messages.push({
@@ -60,11 +60,14 @@ export class Assistant {
 
     try {
       let keepProcessing = true;
-      const allResponseBlocks: IContentBlock[] = [];
-
+      let textDelta = '';
+      let jsonDelta = '';
+      let currentToolName = '';
+      let currentToolID = '';
       while (keepProcessing) {
-        // Send request to Claude with full history
-        const response = await this.anthropic.messages.create({
+        keepProcessing = false;
+        // Create streaming request to Claude
+        const stream = await this.anthropic.messages.stream({
           model: this.modelName,
           max_tokens: 4096,
           messages: this.messages.map(msg => ({
@@ -80,83 +83,106 @@ export class Assistant {
             input_schema: tool.inputSchema
           }))
         });
+        // Process the stream
+        for await (const event of stream) {
+          console.log('Event:', event);
+          if (event.type === 'content_block_start') {
+            if (event.content_block.type === 'tool_use') {
+              currentToolName = event.content_block.name;
+              currentToolID = event.content_block.id;
+              const toolRequesBlock: IContentBlock = {
+                type: 'tool_use',
+                tool_use_id: currentToolID,
+                name: currentToolName,
+                input: event.content_block.input as Record<string, unknown>
+              };
+              yield toolRequesBlock;
+              this.messages.push({
+                role: 'user',
+                content: [toolRequesBlock]
+              });
+            }
+          } else if (event.type === 'content_block_stop') {
+            console.log('!! - content block stop:', event);
+          } else if (event.type === 'content_block_delta') {
+            if (event.delta.type === 'text_delta') {
+              textDelta += event.delta.text;
+            } else if (event.delta.type === 'input_json_delta') {
+              jsonDelta += event.delta.partial_json;
+            }
+          } else if (event.type === 'message_delta') {
+            if (event.delta.stop_reason === 'tool_use') {
+              keepProcessing = true;
+              if (currentToolName !== '') {
+                try {
+                  // Execute tool
+                  const toolResult = await this.mcpClient.callTool({
+                    name: currentToolName,
+                    arguments: JSON.parse(jsonDelta),
+                    _meta: {}
+                  });
 
-        // Handle tool use
-        if (response.stop_reason === 'tool_use') {
-          // Get the tool use from the last content item
-          // TODO: read text as well
-          const toolUse = response.content[response.content.length - 1];
-          if (toolUse.type !== 'tool_use' || !toolUse.name || !toolUse.input) {
-            console.error('Invalid tool use response');
-            keepProcessing = false;
-            continue;
-          }
-
-          console.log(
-            `======Claude wants to use the ${toolUse.name} tool======`
-          );
-
-          try {
-            // Execute tool
-            const toolResult = await this.mcpClient.callTool({
-              name: toolUse.name,
-              arguments: toolUse.input as Record<string, unknown>,
-              _meta: {}
-            });
-            console.log(
-              `====== Tool result ${JSON.stringify(toolResult)} ======`
-            );
-
-            // Create tool result block
-            const resultBlock: IContentBlock = {
-              type: 'tool_result',
-              tool_use_id: toolUse.id,
-              content:
-                typeof toolResult === 'string'
-                  ? toolResult
-                  : JSON.stringify(toolResult)
+                  // Create and yield tool result block
+                  const resultBlock: IContentBlock = {
+                    type: 'tool_result',
+                    tool_use_id: currentToolID,
+                    content:
+                      typeof toolResult === 'string'
+                        ? toolResult
+                        : JSON.stringify(toolResult),
+                    text: textDelta
+                  };
+                  yield resultBlock;
+                  this.messages.push({
+                    role: 'user',
+                    content: [resultBlock]
+                  });
+                } catch (error) {
+                  console.error('Error executing tool:', error);
+                  const errorBlock: IContentBlock = {
+                    type: 'text',
+                    text: `Error executing tool ${currentToolName}: ${error}`,
+                    is_error: true
+                  };
+                  console.log('!! - Tool error:', errorBlock);
+                  yield errorBlock;
+                  keepProcessing = false;
+                } finally {
+                  currentToolName = '';
+                  currentToolID = '';
+                  jsonDelta = '';
+                  textDelta = '';
+                  jsonDelta = '';
+                }
+              }
+            }
+          } else if (event.type === 'message_stop') {
+            // Add text response to history
+            const textBlock: IContentBlock = {
+              type: 'text',
+              text: textDelta
             };
 
-            // Add tool result to history
+            yield textBlock;
             this.messages.push({
               role: 'user',
-              content: [resultBlock]
+              content: [textBlock]
             });
-
-            allResponseBlocks.push(resultBlock);
-            keepProcessing = true;
-          } catch (error) {
-            console.error('Error executing tool:', error);
-            keepProcessing = false;
+            textDelta = '';
+            jsonDelta = '';
+            console.log('!! - message stop:', event);
           }
-        } else if (response.content[0] && 'text' in response.content[0]) {
-          // Handle text response
-          const text = response.content[0].text;
-          const textBlock: IContentBlock = {
-            type: 'text',
-            text
-          };
-          allResponseBlocks.push(textBlock);
-
-          // Add text response to history
-          this.messages.push({
-            role: 'assistant',
-            content: [textBlock]
-          });
-
-          // Stop processing as we got a text response
-          keepProcessing = false;
         }
+        const finalMessage = stream.finalMessage();
+        console.log('Final message:', finalMessage);
       }
-
-      return allResponseBlocks;
     } catch (error) {
       console.error('Error processing message:', error);
-      const errorBlock: IContentBlock = {
+      yield {
         type: 'text',
-        text: 'An error occurred while processing your message.'
+        text: 'An error occurred while processing your message.',
+        is_error: true
       };
-      return [errorBlock];
     }
   }
 
