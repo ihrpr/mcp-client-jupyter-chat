@@ -61,10 +61,11 @@ export class Assistant {
       let jsonDelta = '';
       let currentToolName = '';
       let currentToolID = '';
+      let currentToolInput: Record<string, unknown> = {};
       while (keepProcessing) {
         keepProcessing = false;
         // Create streaming request to Claude
-        const stream = await this.anthropic.messages.stream({
+        const stream = this.anthropic.messages.stream({
           model: this.modelName,
           max_tokens: 4096,
           messages: this.messages.map(msg => ({
@@ -82,29 +83,15 @@ export class Assistant {
         });
         // Process the stream
         for await (const event of stream) {
-          console.log('Event:', event);
           if (event.type === 'content_block_start') {
             if (event.content_block.type === 'tool_use') {
               currentToolName = event.content_block.name;
               currentToolID = event.content_block.id;
-              const toolRequesBlock: Anthropic.ContentBlockParam = {
-                type: 'tool_use',
-                id: currentToolID,
-                name: currentToolName,
-                input: event.content_block.input as Record<string, unknown>
-              };
-              yield {
-                type: 'tool_use',
-                name: currentToolName,
-                input: event.content_block.input as Record<string, unknown>
-              };
-              this.messages.push({
-                role: 'user',
-                content: [toolRequesBlock]
-              });
+              currentToolInput = event.content_block.input as Record<
+                string,
+                unknown
+              >;
             }
-          } else if (event.type === 'content_block_stop') {
-            console.log('!! - content block stop:', event);
           } else if (event.type === 'content_block_delta') {
             if (event.delta.type === 'text_delta') {
               textDelta += event.delta.text;
@@ -115,6 +102,35 @@ export class Assistant {
             if (event.delta.stop_reason === 'tool_use') {
               keepProcessing = true;
               if (currentToolName !== '') {
+                const content: Anthropic.ContentBlockParam[] = [];
+                if (textDelta !== '') {
+                  content.push({
+                    type: 'text',
+                    text: textDelta
+                  } as Anthropic.TextBlockParam);
+                  yield {
+                    type: 'text',
+                    text: textDelta
+                  };
+                  textDelta = '';
+                }
+
+                const toolRequesBlock: Anthropic.ContentBlockParam = {
+                  type: 'tool_use',
+                  id: currentToolID,
+                  name: currentToolName,
+                  input: currentToolInput
+                };
+                content.push(toolRequesBlock);
+                yield {
+                  type: 'tool_use',
+                  name: currentToolName,
+                  input: currentToolInput
+                };
+                this.messages.push({
+                  role: 'assistant',
+                  content: content
+                });
                 try {
                   // Execute tool
                   const toolResult = (await this.mcpClient.callTool({
@@ -122,19 +138,6 @@ export class Assistant {
                     arguments: JSON.parse(jsonDelta),
                     _meta: {}
                   })) as CallToolResult;
-
-                  const content: Anthropic.ContentBlockParam[] = [];
-
-                  if (textDelta !== '') {
-                    content.push({
-                      type: 'text',
-                      text: textDelta
-                    } as Anthropic.TextBlockParam);
-                    yield {
-                      type: 'text',
-                      text: textDelta
-                    };
-                  }
 
                   const toolContent = toolResult.content.map(content => {
                     if (content.type === 'text') {
@@ -158,7 +161,7 @@ export class Assistant {
                     }
                     return {
                       type: 'text',
-                      text: 'content.text'
+                      text: 'Unsupported content type'
                     } as Anthropic.TextBlockParam;
                   });
 
@@ -168,7 +171,6 @@ export class Assistant {
                     content: toolContent
                   };
 
-                  content.push(toolResultBlock);
                   yield {
                     type: 'tool_result',
                     name: currentToolName,
@@ -176,7 +178,7 @@ export class Assistant {
                   };
                   this.messages.push({
                     role: 'user',
-                    content: content
+                    content: [toolResultBlock]
                   });
                 } catch (error) {
                   console.error('Error executing tool:', error);
@@ -191,27 +193,29 @@ export class Assistant {
                   currentToolID = '';
                   jsonDelta = '';
                   textDelta = '';
+                  currentToolInput = {};
                 }
               }
             }
           } else if (event.type === 'message_stop') {
             // Add text response to history
-            const textBlock: Anthropic.ContentBlockParam = {
-              type: 'text',
-              text: textDelta
-            };
-
-            yield textBlock;
-            this.messages.push({
-              role: 'user',
-              content: [textBlock]
-            });
-            textDelta = '';
-            jsonDelta = '';
-            console.log('!! - message stop:', event);
+            if (textDelta !== '') {
+              const textBlock: Anthropic.ContentBlockParam = {
+                type: 'text',
+                text: textDelta
+              };
+              yield textBlock;
+              this.messages.push({
+                role: 'assistant',
+                content: [textBlock]
+              });
+              textDelta = '';
+              jsonDelta = '';
+            }
           }
         }
-        const finalMessage = stream.finalMessage();
+        console.log('Messages', this.messages);
+        const finalMessage = await stream.finalMessage();
         console.log('Final message:', finalMessage);
       }
     } catch (error) {
