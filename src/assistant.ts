@@ -54,15 +54,14 @@ export class Assistant {
         content: userMessage
       });
     }
-
+    let keepProcessing = true;
     try {
-      let keepProcessing = true;
-      let textDelta = '';
-      let jsonDelta = '';
-      let currentToolName = '';
-      let currentToolID = '';
-      let currentToolInput: Record<string, unknown> = {};
       while (keepProcessing) {
+        let textDelta = '';
+        let jsonDelta = '';
+        let currentToolName = '';
+        let currentToolID = '';
+        let currentToolInput: Record<string, unknown> = {};
         keepProcessing = false;
         // Create streaming request to Claude
         const stream = this.anthropic.messages.stream({
@@ -79,7 +78,8 @@ export class Assistant {
             name: tool.name,
             description: tool.description,
             input_schema: tool.inputSchema
-          }))
+          })),
+          system: 'Before answering, explain your reasoning step-by-step.'
         });
         // Process the stream
         for await (const event of stream) {
@@ -196,25 +196,25 @@ export class Assistant {
                   currentToolInput = {};
                 }
               }
+            } else {
+              if (textDelta !== '') {
+                const textBlock: Anthropic.ContentBlockParam = {
+                  type: 'text',
+                  text: textDelta
+                };
+                yield textBlock;
+                this.messages.push({
+                  role: 'assistant',
+                  content: [textBlock]
+                });
+                textDelta = '';
+                jsonDelta = '';
+              }
             }
           } else if (event.type === 'message_stop') {
-            // Add text response to history
-            if (textDelta !== '') {
-              const textBlock: Anthropic.ContentBlockParam = {
-                type: 'text',
-                text: textDelta
-              };
-              yield textBlock;
-              this.messages.push({
-                role: 'assistant',
-                content: [textBlock]
-              });
-              textDelta = '';
-              jsonDelta = '';
-            }
+            console.log('Message stop:', event);
           }
         }
-        console.log('Messages', this.messages);
         const finalMessage = await stream.finalMessage();
         console.log('Final message:', finalMessage);
       }
