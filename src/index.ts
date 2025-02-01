@@ -183,7 +183,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
           assistant = null;
         };
       } catch (error) {
-        console.error('Failed to connect to MCP server:', error);
         const errorMessage =
           error instanceof Error ? error.message : String(error);
 
