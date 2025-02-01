@@ -7,9 +7,9 @@
         "jupyterlab",
         "jupyterlab-extension"
     ],
-    "homepage": "https://github.com/ihrpr/mcp-client-jupyter-chat.git",
+    "homepage": "https://github.com/ihrpr/mcp-client-jupyter-chat",
     "bugs": {
-        "url": "https://github.com/ihrpr/mcp-client-jupyter-chat.git/issues"
+        "url": "https://github.com/ihrpr/mcp-client-jupyter-chat/issues"
     },
     "license": "BSD-3-Clause",
     "author": {
@@ -27,7 +27,7 @@
     "style": "style/index.css",
     "repository": {
         "type": "git",
-        "url": "https://github.com/ihrpr/mcp-client-jupyter-chat.git.git"
+        "url": "https://github.com/ihrpr/mcp-client-jupyter-chat.git"
     },
     "scripts": {
         "build": "jlpm build:lib && jlpm build:labextension:dev",

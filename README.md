@@ -1,7 +1,7 @@
 # mcp_client_jupyter_chat
 
-[![Github Actions Status](https://github.com/ihrpr/mcp-client-jupyter-chat.git/workflows/Build/badge.svg)](https://github.com/ihrpr/mcp-client-jupyter-chat.git/actions/workflows/build.yml)
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ihrpr/mcp-client-jupyter-chat.git/main?urlpath=lab)
+[![Github Actions Status](https://github.com/ihrpr/mcp-client-jupyter-chat/workflows/Build/badge.svg)](https://github.com/ihrpr/mcp-client-jupyter-chat/actions/workflows/build.yml)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ihrpr/mcp-client-jupyter-chat/main?urlpath=lab)
 
 A JupyterLab extension for Chat with AI supporting Model Context Protocol (MCP). This extension integrates AI and provides interactive tool usage capabilities through MCP servers.
 
