@@ -3,12 +3,35 @@
 [![Github Actions Status](https://github.com/ihrpr/mcp-client-jupyter-chat.git/workflows/Build/badge.svg)](https://github.com/ihrpr/mcp-client-jupyter-chat.git/actions/workflows/build.yml)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ihrpr/mcp-client-jupyter-chat.git/main?urlpath=lab)
 
+A JupyterLab extension for Chat with AI supporting Model Context Protocol (MCP). This extension integrates AI and provides interactive tool usage capabilities through MCP servers.
 
-A JupyterLab extension for Chat with AI supporting MCP
+## Features
+
+- Seamless integration with AI models (Currently supported models are Anthropi. More models are coming soon.
+  )
+- Real-time streaming of responses with step-by-step reasoning
+- Support for MCP server tools with interactive execution:
+- Rich content display
+- Interactive chat interface
 
 ## Requirements
 
 - JupyterLab >= 4.0.0
+- An Anthropic API key for Claude access
+- Running MCP server(s) for tool integration (optional)
+
+## Configuration
+
+### Model Configuration
+
+The extension supports multiple Claude models through the Anthropic API. You'll need to:
+
+1. Obtain an Anthropic API key from [Anthropic's website](https://www.anthropic.com)
+2. Configure your models in JupyterLab's Settings Editor under the "MCP Chat" section
+3. For each model, provide:
+   - Name (e.g., "gpt-4")
+   - API Key
+   - Set as default (optional)
 
 ## Install
 

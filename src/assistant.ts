@@ -1,35 +1,33 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { Tool as McpTool } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolResult,
+  Tool as McpTool
+} from '@modelcontextprotocol/sdk/types.js';
 import Anthropic from '@anthropic-ai/sdk';
 
-export interface IContentBlock {
+export interface IStreamEvent {
   type: 'text' | 'tool_use' | 'tool_result';
   text?: string;
-  tool_use_id?: string;
   name?: string;
   input?: Record<string, unknown>;
   content?: string;
   is_error?: boolean;
 }
 
-interface IMessage {
-  role: 'user' | 'assistant';
-  content: string | IContentBlock[];
-}
-
 export class Assistant {
-  private messages: IMessage[] = [];
+  private messages: Anthropic.Messages.MessageParam[] = [];
   private mcpClient: Client;
   private tools: McpTool[] = [];
   private anthropic: Anthropic;
-  private MODEL_NAME = 'claude-3-sonnet-20240229';
+  private modelName: string;
 
-  constructor(mcpClient: Client, apiKey: string) {
+  constructor(mcpClient: Client, modelName: string, apiKey: string) {
     this.mcpClient = mcpClient;
     this.anthropic = new Anthropic({
       apiKey: apiKey,
       dangerouslyAllowBrowser: true
     });
+    this.modelName = modelName;
   }
 
   /**
@@ -46,9 +44,9 @@ export class Assistant {
   }
 
   /**
-   * Process a message and handle any tool use
+   * Process a message and handle any tool use with streaming
    */
-  async sendMessage(userMessage: string): Promise<IContentBlock[]> {
+  async *sendMessage(userMessage: string): AsyncGenerator<IStreamEvent> {
     // Only add user message if it's not empty (empty means continuing from tool result)
     if (userMessage) {
       this.messages.push({
@@ -56,15 +54,17 @@ export class Assistant {
         content: userMessage
       });
     }
-
+    let keepProcessing = true;
     try {
-      let keepProcessing = true;
-      const allResponseBlocks: IContentBlock[] = [];
-
       while (keepProcessing) {
-        // Send request to Claude with full history
-        const response = await this.anthropic.messages.create({
-          model: this.MODEL_NAME,
+        let textDelta = '';
+        let jsonDelta = '';
+        let currentToolName = '';
+        let currentToolID = '';
+        keepProcessing = false;
+        // Create streaming request to Claude
+        const stream = this.anthropic.messages.stream({
+          model: this.modelName,
           max_tokens: 4096,
           messages: this.messages.map(msg => ({
             role: msg.role,
@@ -77,90 +77,154 @@ export class Assistant {
             name: tool.name,
             description: tool.description,
             input_schema: tool.inputSchema
-          }))
+          })),
+          system: 'Before answering, explain your reasoning step-by-step.'
         });
+        // Process the stream
+        for await (const event of stream) {
+          if (event.type === 'content_block_start') {
+            if (event.content_block.type === 'tool_use') {
+              currentToolName = event.content_block.name;
+              currentToolID = event.content_block.id;
+            }
+          } else if (event.type === 'content_block_delta') {
+            if (event.delta.type === 'text_delta') {
+              textDelta += event.delta.text;
+              yield {
+                type: 'text',
+                text: event.delta.text
+              };
+            } else if (event.delta.type === 'input_json_delta') {
+              jsonDelta += event.delta.partial_json;
+            }
+          } else if (event.type === 'message_delta') {
+            if (event.delta.stop_reason === 'tool_use') {
+              keepProcessing = true;
+              if (currentToolName !== '') {
+                const content: Anthropic.ContentBlockParam[] = [];
+                if (textDelta !== '') {
+                  content.push({
+                    type: 'text',
+                    text: textDelta
+                  } as Anthropic.TextBlockParam);
+                  textDelta = '';
+                }
+                const toolInput = JSON.parse(jsonDelta);
 
-        // Handle tool use
-        if (response.stop_reason === 'tool_use') {
-          // Get the tool use from the last content item
-          // TODO: read text as well
-          const toolUse = response.content[response.content.length - 1];
-          if (toolUse.type !== 'tool_use' || !toolUse.name || !toolUse.input) {
-            console.error('Invalid tool use response');
-            keepProcessing = false;
-            continue;
+                const toolRequesBlock: Anthropic.ContentBlockParam = {
+                  type: 'tool_use',
+                  id: currentToolID,
+                  name: currentToolName,
+                  input: toolInput
+                };
+                content.push(toolRequesBlock);
+                yield {
+                  type: 'tool_use',
+                  name: currentToolName,
+                  input: toolInput
+                };
+                this.messages.push({
+                  role: 'assistant',
+                  content: content
+                });
+                try {
+                  // Execute tool
+                  const toolResult = (await this.mcpClient.callTool({
+                    name: currentToolName,
+                    arguments: toolInput,
+                    _meta: {}
+                  })) as CallToolResult;
+
+                  const toolContent = toolResult.content.map(content => {
+                    if (content.type === 'text') {
+                      return {
+                        type: 'text',
+                        text: content.text
+                      } as Anthropic.TextBlockParam;
+                    } else if (content.type === 'image') {
+                      return {
+                        type: 'image',
+                        source: {
+                          type: 'base64',
+                          media_type: content.mimeType as
+                            | 'image/jpeg'
+                            | 'image/png'
+                            | 'image/gif'
+                            | 'image/webp',
+                          data: content.data
+                        }
+                      } as Anthropic.ImageBlockParam;
+                    }
+                    return {
+                      type: 'text',
+                      text: 'Unsupported content type'
+                    } as Anthropic.TextBlockParam;
+                  });
+
+                  const toolResultBlock: Anthropic.ToolResultBlockParam = {
+                    type: 'tool_result',
+                    tool_use_id: currentToolID,
+                    content: toolContent
+                  };
+
+                  yield {
+                    type: 'tool_result',
+                    name: currentToolName,
+                    content: JSON.stringify(toolContent)
+                  };
+                  this.messages.push({
+                    role: 'user',
+                    content: [toolResultBlock]
+                  });
+                } catch (error) {
+                  console.error('Error executing tool:', error);
+                  const errorBlock: Anthropic.ContentBlockParam = {
+                    type: 'text',
+                    text: `Error executing tool ${currentToolName}: ${error}`
+                  };
+                  yield errorBlock;
+                  keepProcessing = false;
+                } finally {
+                  currentToolName = '';
+                  currentToolID = '';
+                  jsonDelta = '';
+                  textDelta = '';
+                }
+              }
+            } else {
+              if (textDelta !== '') {
+                const textBlock: Anthropic.ContentBlockParam = {
+                  type: 'text',
+                  text: textDelta
+                };
+                this.messages.push({
+                  role: 'assistant',
+                  content: [textBlock]
+                });
+                textDelta = '';
+                jsonDelta = '';
+              }
+            }
+          } else if (event.type === 'message_stop') {
+            console.log('Message stop:', event);
           }
-
-          console.log(
-            `======Claude wants to use the ${toolUse.name} tool======`
-          );
-
-          try {
-            // Execute tool
-            const toolResult = await this.mcpClient.callTool({
-              name: toolUse.name,
-              arguments: toolUse.input as Record<string, unknown>,
-              _meta: {}
-            });
-
-            // Create tool result block
-            const resultBlock: IContentBlock = {
-              type: 'tool_result',
-              tool_use_id: toolUse.id,
-              content:
-                typeof toolResult === 'string'
-                  ? toolResult
-                  : JSON.stringify(toolResult)
-            };
-
-            // Add tool result to history
-            this.messages.push({
-              role: 'user',
-              content: [resultBlock]
-            });
-
-            allResponseBlocks.push(resultBlock);
-            keepProcessing = true;
-          } catch (error) {
-            console.error('Error executing tool:', error);
-            keepProcessing = false;
-          }
-        } else if (response.content[0] && 'text' in response.content[0]) {
-          // Handle text response
-          const text = response.content[0].text;
-          const textBlock: IContentBlock = {
-            type: 'text',
-            text
-          };
-          allResponseBlocks.push(textBlock);
-          console.log('\nTechNova Support: ' + text);
-
-          // Add text response to history
-          this.messages.push({
-            role: 'assistant',
-            content: [textBlock]
-          });
-
-          // Stop processing as we got a text response
-          keepProcessing = false;
         }
+        const finalMessage = await stream.finalMessage();
+        console.log('Final message:', finalMessage);
       }
-
-      return allResponseBlocks;
     } catch (error) {
       console.error('Error processing message:', error);
-      const errorBlock: IContentBlock = {
+      yield {
         type: 'text',
         text: 'An error occurred while processing your message.'
       };
-      return [errorBlock];
     }
   }
 
   /**
    * Get the conversation history
    */
-  getHistory(): IMessage[] {
+  getHistory(): Anthropic.Messages.MessageParam[] {
     return this.messages;
   }
 
