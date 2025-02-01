@@ -90,6 +90,10 @@ export class Assistant {
           } else if (event.type === 'content_block_delta') {
             if (event.delta.type === 'text_delta') {
               textDelta += event.delta.text;
+              yield {
+                type: 'text',
+                text: event.delta.text
+              };
             } else if (event.delta.type === 'input_json_delta') {
               jsonDelta += event.delta.partial_json;
             }
@@ -103,10 +107,6 @@ export class Assistant {
                     type: 'text',
                     text: textDelta
                   } as Anthropic.TextBlockParam);
-                  yield {
-                    type: 'text',
-                    text: textDelta
-                  };
                   textDelta = '';
                 }
                 const toolInput = JSON.parse(jsonDelta);
@@ -197,7 +197,6 @@ export class Assistant {
                   type: 'text',
                   text: textDelta
                 };
-                yield textBlock;
                 this.messages.push({
                   role: 'assistant',
                   content: [textBlock]
