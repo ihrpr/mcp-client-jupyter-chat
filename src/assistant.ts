@@ -61,7 +61,6 @@ export class Assistant {
         let jsonDelta = '';
         let currentToolName = '';
         let currentToolID = '';
-        let currentToolInput: Record<string, unknown> = {};
         keepProcessing = false;
         // Create streaming request to Claude
         const stream = this.anthropic.messages.stream({
@@ -87,10 +86,6 @@ export class Assistant {
             if (event.content_block.type === 'tool_use') {
               currentToolName = event.content_block.name;
               currentToolID = event.content_block.id;
-              currentToolInput = event.content_block.input as Record<
-                string,
-                unknown
-              >;
             }
           } else if (event.type === 'content_block_delta') {
             if (event.delta.type === 'text_delta') {
@@ -114,18 +109,19 @@ export class Assistant {
                   };
                   textDelta = '';
                 }
+                const toolInput = JSON.parse(jsonDelta);
 
                 const toolRequesBlock: Anthropic.ContentBlockParam = {
                   type: 'tool_use',
                   id: currentToolID,
                   name: currentToolName,
-                  input: currentToolInput
+                  input: toolInput
                 };
                 content.push(toolRequesBlock);
                 yield {
                   type: 'tool_use',
                   name: currentToolName,
-                  input: currentToolInput
+                  input: toolInput
                 };
                 this.messages.push({
                   role: 'assistant',
@@ -135,7 +131,7 @@ export class Assistant {
                   // Execute tool
                   const toolResult = (await this.mcpClient.callTool({
                     name: currentToolName,
-                    arguments: JSON.parse(jsonDelta),
+                    arguments: toolInput,
                     _meta: {}
                   })) as CallToolResult;
 
@@ -193,7 +189,6 @@ export class Assistant {
                   currentToolID = '';
                   jsonDelta = '';
                   textDelta = '';
-                  currentToolInput = {};
                 }
               }
             } else {
