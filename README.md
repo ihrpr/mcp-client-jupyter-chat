@@ -20,9 +20,7 @@ A JupyterLab extension for Chat with AI supporting Model Context Protocol (MCP).
 - An Anthropic API key for Claude access
 - Running MCP server(s) for tool integration (optional)
 
-## Configuration
-
-### Model Configuration
+## Model Configuration
 
 The extension supports multiple Claude models through the Anthropic API. You'll need to:
 
