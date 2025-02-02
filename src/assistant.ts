@@ -25,7 +25,6 @@ export class Assistant {
   private tools: Map<string, McpTool[]> = new Map();
   private anthropic: Anthropic;
   private modelName: string;
-  private defaultClient: Client;
 
   constructor(
     mcpClients: Map<string, Client>,
@@ -33,7 +32,6 @@ export class Assistant {
     apiKey: string
   ) {
     this.mcpClients = mcpClients;
-    this.defaultClient = mcpClients.get('default')!;
     this.anthropic = new Anthropic({
       apiKey: apiKey,
       dangerouslyAllowBrowser: true
