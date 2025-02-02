@@ -43,6 +43,8 @@ exclude = [".github", "binder"]
 [tool.hatch.build.targets.wheel.shared-data]
 "mcp_client_jupyter_chat/labextension" = "share/jupyter/labextensions/mcp-client-jupyter-chat"
 "install.json" = "share/jupyter/labextensions/mcp-client-jupyter-chat/install.json"
+"jupyter-config/server-config" = "etc/jupyter/jupyter_server_config.d"
+
 
 [tool.hatch.build.hooks.version]
 path = "mcp_client_jupyter_chat/_version.py"
