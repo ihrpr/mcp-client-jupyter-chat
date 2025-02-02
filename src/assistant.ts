@@ -14,6 +14,10 @@ export interface IStreamEvent {
   is_error?: boolean;
 }
 
+export interface INotebookContext {
+  notebookPath?: string;
+}
+
 export class Assistant {
   private messages: Anthropic.Messages.MessageParam[] = [];
   private mcpClient: Client;
@@ -46,12 +50,19 @@ export class Assistant {
   /**
    * Process a message and handle any tool use with streaming
    */
-  async *sendMessage(userMessage: string): AsyncGenerator<IStreamEvent> {
+  async *sendMessage(
+    userMessage: string,
+    context: INotebookContext
+  ): AsyncGenerator<IStreamEvent> {
     // Only add user message if it's not empty (empty means continuing from tool result)
     if (userMessage) {
+      let message = userMessage;
+      if (context.notebookPath !== null) {
+        message = `${message}\n Current Notebook Path: ${context.notebookPath}`;
+      }
       this.messages.push({
         role: 'user',
-        content: userMessage
+        content: message
       });
     }
     let keepProcessing = true;

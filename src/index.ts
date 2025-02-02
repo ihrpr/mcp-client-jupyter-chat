@@ -167,7 +167,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
         if (!selectedModel) {
           throw new Error('No model selected');
         }
-
         // Initialize assistant after successful connection
         assistant = new Assistant(
           client,
@@ -304,9 +303,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
         chatArea.appendChild(messageDiv);
 
         let currentTextBlock: HTMLDivElement | null = null;
+        // Get current notebook path from tracker
+        const notebookPath = notebookTracker.currentWidget?.context.path;
 
         // Process streaming response
-        for await (const block of assistant.sendMessage(message)) {
+        for await (const block of assistant.sendMessage(message, {
+          notebookPath
+        })) {
           console.log('Received block:', block);
           let blockDiv = document.createElement('div');
 
