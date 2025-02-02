@@ -79,7 +79,7 @@ jobs:
           sudo rm -rf $(which node)
           sudo rm -rf $(which node)
 
-          pip install "jupyterlab>=4.0.0,<5" mcp_client_jupyter_chat*.whl
+          python -m pip install "jupyterlab>=4.0.0,<5" mcp_client_jupyter_chat*.whl
 
 
           jupyter labextension list
