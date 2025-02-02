@@ -40,8 +40,13 @@ jobs:
           set -eux
           python -m pip install .[test]
 
+          jupyter server extension list
+          jupyter server extension list 2>&1 | grep -ie "mcp_client_jupyter_chat.*OK"
+
           jupyter labextension list
           jupyter labextension list 2>&1 | grep -ie "mcp-client-jupyter-chat.*OK"
+
+
           python -m jupyterlab.browser_check
 
       - name: Package the extension
@@ -67,7 +72,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.12'
           architecture: 'x64'
       - uses: actions/download-artifact@v4
         with:
@@ -79,8 +84,10 @@ jobs:
           sudo rm -rf $(which node)
           sudo rm -rf $(which node)
 
-          pip install "jupyterlab>=4.0.0,<5" mcp_client_jupyter_chat*.whl
+          python -m pip install "jupyterlab>=4.0.0,<5" "mcp-server-jupyter>=0.1.9" mcp_client_jupyter_chat*.whl
 
+          jupyter server extension list
+          jupyter server extension list 2>&1 | grep -ie "mcp_client_jupyter_chat.*OK"
 
           jupyter labextension list
           jupyter labextension list 2>&1 | grep -ie "mcp-client-jupyter-chat.*OK"
@@ -109,7 +116,13 @@ jobs:
       - name: Install the extension
         run: |
           set -eux
-          python -m pip install "jupyterlab>=4.0.0,<5" mcp_client_jupyter_chat*.whl
+          python -m pip install "jupyterlab>=4.0.0,<5" "mcp-server-jupyter>=0.1.9" mcp_client_jupyter_chat*.whl
+
+          jupyter server extension list
+          jupyter server extension list 2>&1 | grep -ie "mcp_client_jupyter_chat.*OK"
+
+          jupyter labextension list
+          jupyter labextension list 2>&1 | grep -ie "mcp-client-jupyter-chat.*OK"
 
       - name: Install dependencies
         working-directory: ui-tests

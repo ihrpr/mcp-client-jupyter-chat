@@ -26,7 +26,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-dependencies = []
+dependencies = ["mcp-server-jupyter>=0.1.9"]
+
 dynamic = ["version", "description", "authors", "urls", "keywords"]
 
 [tool.hatch.version]
@@ -42,6 +43,8 @@ exclude = [".github", "binder"]
 [tool.hatch.build.targets.wheel.shared-data]
 "mcp_client_jupyter_chat/labextension" = "share/jupyter/labextensions/mcp-client-jupyter-chat"
 "install.json" = "share/jupyter/labextensions/mcp-client-jupyter-chat/install.json"
+"jupyter-config/server-config" = "etc/jupyter/jupyter_server_config.d"
+
 
 [tool.hatch.build.hooks.version]
 path = "mcp_client_jupyter_chat/_version.py"
@@ -71,6 +74,7 @@ version_cmd = "hatch version"
 [tool.jupyter-releaser.hooks]
 before-build-npm = [
     "python -m pip install 'jupyterlab>=4.0.0,<5'",
+    "python -m pip install 'mcp-server-jupyter>=0.1.9'",
     "jlpm",
     "jlpm build:prod",
 ]
