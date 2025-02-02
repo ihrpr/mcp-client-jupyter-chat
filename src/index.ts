@@ -150,7 +150,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           try {
             await transport.close();
           } catch (error) {
-            console.log('Error closing existing transport:', error);
+            console.error('Error closing existing transport:', error);
           }
           transport = null;
         }
@@ -310,7 +310,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
         for await (const block of assistant.sendMessage(message, {
           notebookPath
         })) {
-          console.log('Received block:', block);
           let blockDiv = document.createElement('div');
 
           switch (block.type) {
