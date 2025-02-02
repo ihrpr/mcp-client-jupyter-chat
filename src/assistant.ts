@@ -216,8 +216,6 @@ export class Assistant {
                 jsonDelta = '';
               }
             }
-          } else if (event.type === 'message_stop') {
-            console.log('Message stop:', event);
           }
         }
         const finalMessage = await stream.finalMessage();
