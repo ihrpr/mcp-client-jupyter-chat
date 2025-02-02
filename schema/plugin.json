@@ -32,14 +32,14 @@
       },
       "default": [
         {
-          "name": "gpt-4",
-          "apiKey": "please-set-your-api-key",
-          "isDefault": false
-        },
-        {
-          "name": "claude-sonnet-3.5",
+          "name": "claude-3-5-sonnet-20241022",
           "apiKey": "please-set-your-api-key",
           "isDefault": true
+        },
+        {
+          "name": "other-model-to-use",
+          "apiKey": "please-set-your-api-key",
+          "isDefault": false
         }
       ]
     }

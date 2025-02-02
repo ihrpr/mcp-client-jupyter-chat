@@ -14,6 +14,11 @@ export interface IStreamEvent {
   is_error?: boolean;
 }
 
+export interface INotebookContext {
+  notebookPath?: string;
+  activeCellID?: string;
+}
+
 export class Assistant {
   private messages: Anthropic.Messages.MessageParam[] = [];
   private mcpClient: Client;
@@ -46,12 +51,22 @@ export class Assistant {
   /**
    * Process a message and handle any tool use with streaming
    */
-  async *sendMessage(userMessage: string): AsyncGenerator<IStreamEvent> {
+  async *sendMessage(
+    userMessage: string,
+    context: INotebookContext
+  ): AsyncGenerator<IStreamEvent> {
     // Only add user message if it's not empty (empty means continuing from tool result)
     if (userMessage) {
+      let message = userMessage;
+      if (context.notebookPath !== null) {
+        message += `\n Current Notebook Path: ${context.notebookPath}`;
+      }
+      if (context.activeCellID !== null) {
+        message += `\n Active selected cell ID: ${context.activeCellID}`;
+      }
       this.messages.push({
         role: 'user',
-        content: userMessage
+        content: message
       });
     }
     let keepProcessing = true;
@@ -66,13 +81,7 @@ export class Assistant {
         const stream = this.anthropic.messages.stream({
           model: this.modelName,
           max_tokens: 4096,
-          messages: this.messages.map(msg => ({
-            role: msg.role,
-            content:
-              typeof msg.content === 'string'
-                ? msg.content
-                : JSON.stringify(msg.content)
-          })),
+          messages: this.messages,
           tools: this.tools.map(tool => ({
             name: tool.name,
             description: tool.description,
@@ -205,8 +214,6 @@ export class Assistant {
                 jsonDelta = '';
               }
             }
-          } else if (event.type === 'message_stop') {
-            console.log('Message stop:', event);
           }
         }
         const finalMessage = await stream.finalMessage();

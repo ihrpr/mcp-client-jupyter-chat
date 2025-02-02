@@ -150,7 +150,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           try {
             await transport.close();
           } catch (error) {
-            console.log('Error closing existing transport:', error);
+            console.error('Error closing existing transport:', error);
           }
           transport = null;
         }
@@ -167,7 +167,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
         if (!selectedModel) {
           throw new Error('No model selected');
         }
-
         // Initialize assistant after successful connection
         assistant = new Assistant(
           client,
@@ -304,10 +303,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
         chatArea.appendChild(messageDiv);
 
         let currentTextBlock: HTMLDivElement | null = null;
-
+        // Get current notebook path from tracker
+        const notebookPath = notebookTracker.currentWidget?.context.path;
+        const activeCellID =
+          notebookTracker.currentWidget?.content.activeCell?.model.id;
         // Process streaming response
-        for await (const block of assistant.sendMessage(message)) {
-          console.log('Received block:', block);
+        for await (const block of assistant.sendMessage(message, {
+          notebookPath,
+          activeCellID
+        })) {
           let blockDiv = document.createElement('div');
 
           switch (block.type) {
