@@ -16,6 +16,7 @@ export interface IStreamEvent {
 
 export interface INotebookContext {
   notebookPath?: string;
+  activeCellID?: string;
 }
 
 export class Assistant {
@@ -58,7 +59,10 @@ export class Assistant {
     if (userMessage) {
       let message = userMessage;
       if (context.notebookPath !== null) {
-        message = `${message}\n Current Notebook Path: ${context.notebookPath}`;
+        message += `\n Current Notebook Path: ${context.notebookPath}`;
+      }
+      if (context.activeCellID !== null) {
+        message += `\n Active selected cell ID: ${context.activeCellID}`;
       }
       this.messages.push({
         role: 'user',

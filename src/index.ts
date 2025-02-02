@@ -305,10 +305,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
         let currentTextBlock: HTMLDivElement | null = null;
         // Get current notebook path from tracker
         const notebookPath = notebookTracker.currentWidget?.context.path;
-
+        const activeCellID =
+          notebookTracker.currentWidget?.content.activeCell?.model.id;
         // Process streaming response
         for await (const block of assistant.sendMessage(message, {
-          notebookPath
+          notebookPath,
+          activeCellID
         })) {
           let blockDiv = document.createElement('div');
 
