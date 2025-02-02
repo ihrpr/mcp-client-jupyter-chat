@@ -40,8 +40,13 @@ jobs:
           set -eux
           python -m pip install .[test]
 
+          jupyter server extension list
+          jupyter server extension list 2>&1 | grep -ie "mcp_client_jupyter_chat.*OK"
+
           jupyter labextension list
           jupyter labextension list 2>&1 | grep -ie "mcp-client-jupyter-chat.*OK"
+
+
           python -m jupyterlab.browser_check
 
       - name: Package the extension
@@ -81,6 +86,8 @@ jobs:
 
           python -m pip install "jupyterlab>=4.0.0,<5" "mcp-server-jupyter>=0.1.9" mcp_client_jupyter_chat*.whl
 
+          jupyter server extension list
+          jupyter server extension list 2>&1 | grep -ie "mcp_client_jupyter_chat.*OK"
 
           jupyter labextension list
           jupyter labextension list 2>&1 | grep -ie "mcp-client-jupyter-chat.*OK"
@@ -110,6 +117,12 @@ jobs:
         run: |
           set -eux
           python -m pip install "jupyterlab>=4.0.0,<5" "mcp-server-jupyter>=0.1.9" mcp_client_jupyter_chat*.whl
+
+          jupyter server extension list
+          jupyter server extension list 2>&1 | grep -ie "mcp_client_jupyter_chat.*OK"
+
+          jupyter labextension list
+          jupyter labextension list 2>&1 | grep -ie "mcp-client-jupyter-chat.*OK"
 
       - name: Install dependencies
         working-directory: ui-tests
