@@ -26,7 +26,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-dependencies = ["mcp_server_jupyter"]
+dependencies = ["mcp-server-jupyter>=0.1.9"]
+
 dynamic = ["version", "description", "authors", "urls", "keywords"]
 
 [tool.hatch.version]
@@ -71,7 +72,7 @@ version_cmd = "hatch version"
 [tool.jupyter-releaser.hooks]
 before-build-npm = [
     "python -m pip install 'jupyterlab>=4.0.0,<5'",
-    "python -m pip install 'mcp_server_jupyter'",
+    "python -m pip install 'mcp-server-jupyter>=0.1.9'",
     "jlpm",
     "jlpm build:prod",
 ]
