@@ -81,13 +81,7 @@ export class Assistant {
         const stream = this.anthropic.messages.stream({
           model: this.modelName,
           max_tokens: 4096,
-          messages: this.messages.map(msg => ({
-            role: msg.role,
-            content:
-              typeof msg.content === 'string'
-                ? msg.content
-                : JSON.stringify(msg.content)
-          })),
+          messages: this.messages,
           tools: this.tools.map(tool => ({
             name: tool.name,
             description: tool.description,
