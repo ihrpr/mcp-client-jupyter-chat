@@ -21,13 +21,19 @@ export interface INotebookContext {
 
 export class Assistant {
   private messages: Anthropic.Messages.MessageParam[] = [];
-  private mcpClient: Client;
-  private tools: McpTool[] = [];
+  private mcpClients: Map<string, Client>;
+  private tools: Map<string, McpTool[]> = new Map();
   private anthropic: Anthropic;
   private modelName: string;
+  private defaultClient: Client;
 
-  constructor(mcpClient: Client, modelName: string, apiKey: string) {
-    this.mcpClient = mcpClient;
+  constructor(
+    mcpClients: Map<string, Client>,
+    modelName: string,
+    apiKey: string
+  ) {
+    this.mcpClients = mcpClients;
+    this.defaultClient = mcpClients.get('default')!;
     this.anthropic = new Anthropic({
       apiKey: apiKey,
       dangerouslyAllowBrowser: true
@@ -36,12 +42,32 @@ export class Assistant {
   }
 
   /**
-   * Initialize tools from MCP server
+   * Initialize tools from all MCP servers
    */
   async initializeTools(): Promise<void> {
     try {
-      const toolList = await this.mcpClient.listTools();
-      this.tools = toolList.tools;
+      // Clear existing tools
+      this.tools.clear();
+
+      // Initialize tools from each client
+      for (const [serverName, client] of this.mcpClients) {
+        try {
+          const toolList = await client.listTools();
+          this.tools.set(serverName, toolList.tools);
+          console.log(
+            `Initialized ${toolList.tools.length} tools from ${serverName}`
+          );
+        } catch (error) {
+          console.error(
+            `Failed to initialize tools from ${serverName}:`,
+            error
+          );
+        }
+      }
+
+      if (this.tools.size === 0) {
+        throw new Error('No tools available from any MCP server');
+      }
     } catch (error) {
       console.error('Failed to initialize tools:', error);
       throw error;
@@ -82,11 +108,14 @@ export class Assistant {
           model: this.modelName,
           max_tokens: 4096,
           messages: this.messages,
-          tools: this.tools.map(tool => ({
-            name: tool.name,
-            description: tool.description,
-            input_schema: tool.inputSchema
-          })),
+          tools: Array.from(this.tools.entries()).flatMap(
+            ([serverName, tools]) =>
+              tools.map(tool => ({
+                name: `${serverName}:${tool.name}`,
+                description: tool.description,
+                input_schema: tool.inputSchema
+              }))
+          ),
           system: 'Before answering, explain your reasoning step-by-step.'
         });
         // Process the stream
@@ -137,9 +166,17 @@ export class Assistant {
                   content: content
                 });
                 try {
-                  // Execute tool
-                  const toolResult = (await this.mcpClient.callTool({
-                    name: currentToolName,
+                  // Parse server name and tool name
+                  const [serverName, toolName] = currentToolName.split(':');
+                  const client = this.mcpClients.get(serverName);
+
+                  if (!client) {
+                    throw new Error(`MCP server ${serverName} not found`);
+                  }
+
+                  // Execute tool on appropriate client
+                  const toolResult = (await client.callTool({
+                    name: toolName,
                     arguments: toolInput,
                     _meta: {}
                   })) as CallToolResult;

@@ -4,6 +4,28 @@
   "description": "mcp-client-jupyter-chat settings.",
   "type": "object",
   "properties": {
+    "mcpServers": {
+      "type": "array",
+      "title": "Additional MCP Servers",
+      "description": "List of additional MCP servers to connect to (beyond the default server at localhost:3002)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Server Name",
+            "description": "Name of the MCP server"
+          },
+          "url": {
+            "type": "string",
+            "title": "Server URL",
+            "description": "URL of the MCP server's SSE endpoint"
+          }
+        },
+        "required": ["name", "url"]
+      },
+      "default": []
+    },
     "models": {
       "type": "array",
       "title": "LLM Models",

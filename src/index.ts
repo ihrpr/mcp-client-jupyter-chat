@@ -12,7 +12,9 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { Assistant } from './assistant';
-import { IStreamEvent } from './assistant'; /**
+import { IStreamEvent } from './assistant';
+
+/**
  * Initialization data for the mcp-client-jupyter-chat extension.
  */
 const plugin: JupyterFrontEndPlugin<void> = {
@@ -36,12 +38,20 @@ const plugin: JupyterFrontEndPlugin<void> = {
       isDefault: boolean;
     }
 
+    interface IMcpServerConfig {
+      name: string;
+      url: string;
+    }
+
     interface ISettings {
       models: IModelConfig[];
+      mcpServers: IMcpServerConfig[];
     }
 
     let availableModels: IModelConfig[] = [];
     let selectedModel: IModelConfig | null = null;
+    let settingsData: ISettings | null = null;
+    const mcpClients: Map<string, Client> = new Map();
 
     // Create model dropdown
     const modelSelectWrapper = document.createElement('div');
@@ -69,8 +79,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     // Load and watch settings
     if (settingRegistry) {
-      const loadSettings = (settings: ISettingRegistry.ISettings) => {
-        const settingsData = settings.composite as unknown as ISettings;
+      const loadSettings = async (settings: ISettingRegistry.ISettings) => {
+        settingsData = settings.composite as unknown as ISettings;
         const models = settingsData?.models || [];
         availableModels = Array.isArray(models) ? models : [];
         selectedModel =
@@ -78,9 +88,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
         console.log(
           'mcp-client-jupyter-chat settings loaded:',
-          `models: ${availableModels.length}`
+          `models: ${availableModels.length},`,
+          `additional servers: ${settingsData?.mcpServers?.length || 0}`
         );
         updateModelDropdown();
+
+        // Reinitialize connections when settings change
+        await initializeConnections();
       };
 
       settingRegistry
@@ -116,28 +130,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
     input.placeholder = 'Message MCP v3!...';
     input.classList.add('mcp-input');
 
-    // Initialize MCP client
-    const client = new Client(
-      {
-        name: 'jupyter-mcp-client',
-        version: '0.1.0'
-      },
-      {
-        capabilities: {
-          tools: {},
-          resources: {}
-        }
-      }
-    );
-
-    // Initialize assistant
+    // Initialize MCP clients and assistant
     let assistant: Assistant | null = null;
-
-    let transport: SSEClientTransport | null = null;
-    let isConnected = false;
     let isConnecting = false;
 
-    const initializeConnection = async () => {
+    const initializeConnections = async () => {
       if (isConnecting) {
         return;
       }
@@ -145,42 +142,82 @@ const plugin: JupyterFrontEndPlugin<void> = {
       isConnecting = true;
 
       try {
-        // Clean up existing transport if any
-        if (transport) {
+        // Clean up existing connections
+        for (const [_, client] of mcpClients) {
           try {
-            await transport.close();
+            await client.transport?.close();
           } catch (error) {
-            console.error('Error closing existing transport:', error);
+            console.error('Error closing client transport:', error);
           }
-          transport = null;
+        }
+        mcpClients.clear();
+
+        // Initialize default server client
+        const newDefaultClient = new Client(
+          {
+            name: 'jupyter-mcp-client-default',
+            version: '0.1.0'
+          },
+          {
+            capabilities: {
+              tools: {},
+              resources: {}
+            }
+          }
+        );
+
+        // Connect to default server
+        const defaultUrl = new URL('http://localhost:3002/sse');
+        const defaultTransport = new SSEClientTransport(defaultUrl);
+        await newDefaultClient.connect(defaultTransport);
+        mcpClients.set('default', newDefaultClient);
+        console.log('Successfully connected to default MCP server');
+
+        // Connect to additional servers from settings
+        const additionalServers = settingsData?.mcpServers || [];
+        for (const server of additionalServers) {
+          const client = new Client(
+            {
+              name: `jupyter-mcp-client-${server.name}`,
+              version: '0.1.0'
+            },
+            {
+              capabilities: {
+                tools: {},
+                resources: {}
+              }
+            }
+          );
+
+          const transport = new SSEClientTransport(new URL(server.url));
+          try {
+            await client.connect(transport);
+            mcpClients.set(server.name, client);
+            console.log(`Successfully connected to MCP server: ${server.name}`);
+          } catch (error) {
+            console.error(
+              `Failed to connect to MCP server ${server.name}:`,
+              error
+            );
+          }
         }
 
-        // Create new transport with HTTP instead of HTTPS and no-cors mode
-        const url = new URL('http://localhost:3002/sse');
-        transport = new SSEClientTransport(url);
+        // Get default client from map
+        const defaultClient = mcpClients.get('default');
+        if (!defaultClient) {
+          throw new Error('Default MCP server not connected');
+        }
 
-        await client.connect(transport);
-        isConnected = true;
-        console.log('Successfully connected to MCP server');
-
-        // Get selected model's API key
+        // Initialize assistant with all clients
         if (!selectedModel) {
           throw new Error('No model selected');
         }
-        // Initialize assistant after successful connection
         assistant = new Assistant(
-          client,
+          mcpClients,
           selectedModel.name,
           selectedModel.apiKey
         );
         await assistant.initializeTools();
-
-        transport.onclose = () => {
-          console.log('SSE transport closed');
-          isConnected = false;
-          transport = null;
-          assistant = null;
-        };
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -193,8 +230,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
               '  Access-Control-Allow-Headers: Accept, Origin\n'
           );
         }
-        isConnected = false;
-        transport = null;
+        mcpClients.clear();
         assistant = null;
       } finally {
         isConnecting = false;
@@ -202,7 +238,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     };
 
     // Initial connection attempt
-    initializeConnection().catch(console.error);
+    initializeConnections().catch(console.error);
 
     // Auto-resize textarea
     input.addEventListener('input', () => {
@@ -281,15 +317,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
       // Add user message
       addMessage(message, true);
 
-      if (!isConnected || !assistant) {
+      if (!assistant || mcpClients.size === 0) {
         addMessage(
-          'Not connected to MCP server. Attempting to connect...',
+          'Not connected to any MCP servers. Attempting to connect...',
           false
         );
-        await initializeConnection();
-        if (!isConnected || !assistant) {
+        await initializeConnections();
+        if (!assistant || mcpClients.size === 0) {
           addMessage(
-            'Failed to connect to MCP server. Please ensure the server is running at http://localhost:3002',
+            'Failed to connect to MCP servers. Please ensure at least the default server is running at http://localhost:3002',
             false
           );
           return;
@@ -379,11 +415,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
         }
       } catch (error) {
         console.error('Error handling message:', error);
-        isConnected = false;
-        transport = null;
+        mcpClients.clear();
         assistant = null;
         addMessage(
-          'Error communicating with MCP server. Please ensure the server is running and try again.',
+          'Error communicating with MCP servers. Please ensure the servers are running and try again.',
           false
         );
       }
