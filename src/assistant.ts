@@ -109,7 +109,7 @@ export class Assistant {
           tools: Array.from(this.tools.entries()).flatMap(
             ([serverName, tools]) =>
               tools.map(tool => ({
-                name: `${serverName}:${tool.name}`,
+                name: `${serverName}__${tool.name}`,
                 description: tool.description,
                 input_schema: tool.inputSchema
               }))
