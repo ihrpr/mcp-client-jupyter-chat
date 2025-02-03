@@ -20,6 +20,7 @@ export interface INotebookContext {
 }
 
 export class Assistant {
+  SERVER_TOOL_SEPARATOR: string = '__';
   private messages: Anthropic.Messages.MessageParam[] = [];
   private mcpClients: Map<string, Client>;
   private tools: Map<string, McpTool[]> = new Map();
@@ -109,7 +110,7 @@ export class Assistant {
           tools: Array.from(this.tools.entries()).flatMap(
             ([serverName, tools]) =>
               tools.map(tool => ({
-                name: `${serverName}__${tool.name}`,
+                name: `${serverName}${this.SERVER_TOOL_SEPARATOR}${tool.name}`,
                 description: tool.description,
                 input_schema: tool.inputSchema
               }))
@@ -165,7 +166,9 @@ export class Assistant {
                 });
                 try {
                   // Parse server name and tool name
-                  const [serverName, toolName] = currentToolName.split(':');
+                  const [serverName, toolName] = currentToolName.split(
+                    this.SERVER_TOOL_SEPARATOR
+                  );
                   const client = this.mcpClients.get(serverName);
 
                   if (!client) {
