@@ -145,7 +145,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
       try {
         // Clean up existing connections
-        for (const [_, client] of mcpClients) {
+        for (const client of mcpClients.values()) {
           try {
             await client.transport?.close();
           } catch (error) {

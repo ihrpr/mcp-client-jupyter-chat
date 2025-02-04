@@ -146,7 +146,8 @@
   background: #f8f8f8;
   border-radius: 6px;
   margin: 8px 0;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, Courier,
+    monospace;
   font-size: 13px;
   transition: max-height 0.3s ease;
 }
