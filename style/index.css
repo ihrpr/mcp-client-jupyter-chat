@@ -36,6 +36,15 @@
   padding: 8px 12px;
   border-radius: 12px;
   max-width: 80%;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.mcp-message-markdown {
+  margin: 0;
+  padding: 0;
 }
 
 .mcp-message.user {
@@ -59,7 +68,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
+  padding: 2px;
   background: #fff;
   border-top: 1px solid #e6e2dd;
   box-sizing: border-box;
@@ -80,8 +89,6 @@
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border: 1px solid #e6e2dd;
-  border-radius: 20px;
   background: #fff;
 }
 
@@ -138,9 +145,17 @@
   padding: 8px;
   background: #f8f8f8;
   border-radius: 6px;
-  margin: 4px 0;
-  font-family: monospace;
+  margin: 8px 0;
+  font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, Courier,
+    monospace;
+  font-size: 13px;
   transition: max-height 0.3s ease;
+}
+
+.tool-result pre {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .tool-result.expanded {
@@ -181,7 +196,6 @@
   background: #f7f7f7;
   border-radius: 8px;
   padding: 2px 4px;
-  margin-top: 4px;
   margin-bottom: 8px;
   width: fit-content;
   z-index: 1001;
