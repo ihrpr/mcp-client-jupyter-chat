@@ -6,6 +6,7 @@ import {
 } from '@jupyterlab/application';
 import { ICommandPalette } from '@jupyterlab/apputils';
 import { Widget, Panel } from '@lumino/widgets';
+import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { INotebookTracker } from '@jupyterlab/notebook';
 
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
@@ -21,12 +22,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
   id: 'mcp-client-jupyter-chat:plugin',
   description: 'A JupyterLab extension for Chat with AI supporting MCP',
   autoStart: true,
-  requires: [ICommandPalette, INotebookTracker],
+  requires: [ICommandPalette, INotebookTracker, IRenderMimeRegistry],
   optional: [ISettingRegistry],
   activate: (
     app: JupyterFrontEnd,
     palette: ICommandPalette,
     notebookTracker: INotebookTracker,
+    rendermime: IRenderMimeRegistry,
     settingRegistry: ISettingRegistry | null
   ) => {
     console.log('JupyterLab extension mcp-client-jupyter-chat is activated!');
@@ -257,7 +259,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
       messageDiv.classList.add(isUser ? 'user' : 'assistant');
 
       if (typeof content === 'string') {
-        messageDiv.textContent = content;
+        // Render markdown for string content
+        const widget = rendermime.createRenderer('text/markdown');
+        widget.renderModel({
+          data: { 'text/markdown': content },
+          trusted: true,
+          metadata: {},
+          setData: () => {
+            /* Required but not used */
+          }
+        });
+        messageDiv.appendChild(widget.node);
       } else {
         // Handle content blocks
         content.forEach(block => {
@@ -265,7 +277,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
           switch (block.type) {
             case 'text': {
-              blockDiv.textContent = block.text || '';
+              // Render markdown for text blocks
+              const widget = rendermime.createRenderer('text/markdown');
+              widget.renderModel({
+                data: { 'text/markdown': block.text || '' },
+                trusted: true,
+                metadata: {},
+                setData: () => {
+                  /* Required but not used */
+                }
+              });
+              blockDiv.appendChild(widget.node);
               break;
             }
             case 'tool_use': {
@@ -352,12 +374,30 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
           switch (block.type) {
             case 'text': {
+              // Accumulate text for markdown rendering
               if (!currentTextBlock) {
                 currentTextBlock = document.createElement('div');
+                currentTextBlock.classList.add('mcp-message-markdown');
                 messageDiv.appendChild(currentTextBlock);
               }
-              currentTextBlock.textContent =
-                (currentTextBlock.textContent || '') + (block.text || '');
+
+              // Render markdown for streaming text
+              const newText =
+                (currentTextBlock.getAttribute('data-text') || '') +
+                (block.text || '');
+              currentTextBlock.setAttribute('data-text', newText);
+
+              const widget = rendermime.createRenderer('text/markdown');
+              widget.renderModel({
+                data: { 'text/markdown': newText },
+                trusted: true,
+                metadata: {},
+                setData: () => {
+                  /* Required but not used */
+                }
+              });
+              currentTextBlock.innerHTML = '';
+              currentTextBlock.appendChild(widget.node);
               break;
             }
 
@@ -393,8 +433,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
               header.appendChild(toggleButton);
               blockDiv.appendChild(header);
 
-              // Create content container
-              const content = document.createElement('div');
+              // Create content container with preserved formatting
+              const content = document.createElement('pre');
+              content.style.margin = '0';
+              content.style.whiteSpace = 'pre-wrap';
               content.textContent =
                 typeof block.content === 'string'
                   ? block.content
