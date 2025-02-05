@@ -5,6 +5,10 @@
 
 A JupyterLab extension for Chat with AI supporting Model Context Protocol (MCP). This extension integrates AI and provides interactive tool usage capabilities through MCP servers.
 
+## Demo
+
+![demo](./mcp-client-jupyter-chat-demo.gif)
+
 ## Features
 
 - Seamless integration with AI models (Currently supported models are Anthropi. More models are coming soon.
