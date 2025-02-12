@@ -8,7 +8,7 @@ import { ICommandPalette } from '@jupyterlab/apputils';
 import { Widget, Panel } from '@lumino/widgets';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { INotebookTracker } from '@jupyterlab/notebook';
-
+import { IStateDB } from '@jupyterlab/statedb';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
@@ -22,11 +22,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
   id: 'mcp-client-jupyter-chat:plugin',
   description: 'A JupyterLab extension for Chat with AI supporting MCP',
   autoStart: true,
-  requires: [ICommandPalette, INotebookTracker, IRenderMimeRegistry],
+  requires: [ICommandPalette, IStateDB, INotebookTracker, IRenderMimeRegistry],
   optional: [ISettingRegistry],
-  activate: (
+  activate: async (
     app: JupyterFrontEnd,
     palette: ICommandPalette,
+    stateDB: IStateDB,
     notebookTracker: INotebookTracker,
     rendermime: IRenderMimeRegistry,
     settingRegistry: ISettingRegistry | null
@@ -121,6 +122,50 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     const chatArea = document.createElement('div');
     chatArea.classList.add('mcp-chat-area');
+
+    // Function to display chat history
+    const displayHistory = () => {
+      if (!assistant) {
+        return;
+      }
+
+      // Clear existing messages
+      chatArea.innerHTML = '';
+
+      // Get and display history
+      const history = assistant.getHistory();
+      history.forEach(msg => {
+        if (typeof msg.content === 'string') {
+          addMessage(msg.content, msg.role === 'user');
+        } else {
+          // Convert content blocks to IStreamEvent array
+          const events: IStreamEvent[] = msg.content.map(block => {
+            if ('text' in block) {
+              return {
+                type: 'text',
+                text: block.text
+              } as IStreamEvent;
+            } else if (block.type === 'tool_use') {
+              return {
+                type: 'tool_use',
+                name: block.name,
+                input: block.input as Record<string, unknown>
+              } as IStreamEvent;
+            } else if (block.type === 'tool_result') {
+              return {
+                type: 'tool_result',
+                content: JSON.stringify(block.content)
+              } as IStreamEvent;
+            }
+            return {
+              type: 'text',
+              text: 'Unsupported content type'
+            } as IStreamEvent;
+          });
+          addMessage(events, msg.role === 'user');
+        }
+      });
+    };
 
     const inputArea = document.createElement('div');
     inputArea.classList.add('mcp-input-area');
@@ -217,9 +262,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
         assistant = new Assistant(
           mcpClients,
           selectedModel.name,
-          selectedModel.apiKey
+          selectedModel.apiKey,
+          stateDB
         );
         await assistant.initializeTools();
+        // Display history after initializing assistant
+        displayHistory();
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -239,8 +287,14 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
     };
 
-    // Initial connection attempt
-    initializeConnections().catch(console.error);
+    // Initial connection attempt and display history
+    initializeConnections()
+      .then(() => {
+        if (assistant) {
+          displayHistory();
+        }
+      })
+      .catch(console.error);
 
     // Auto-resize textarea
     input.addEventListener('input', () => {

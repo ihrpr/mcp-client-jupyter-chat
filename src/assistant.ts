@@ -4,6 +4,42 @@ import {
   Tool as McpTool
 } from '@modelcontextprotocol/sdk/types.js';
 import Anthropic from '@anthropic-ai/sdk';
+import { IStateDB } from '@jupyterlab/statedb';
+
+// Interfaces that match JupyterLab's state database requirements
+interface ISerializedContentBlock {
+  type: string;
+  text?: string;
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | null
+    | undefined
+    | Record<string, unknown>;
+}
+
+interface ISerializedMessage {
+  role: string;
+  content: string | ISerializedContentBlock[];
+  [key: string]: string | ISerializedContentBlock[] | undefined;
+}
+
+interface ISerializedHistory {
+  messages: ISerializedMessage[];
+  [key: string]: ISerializedMessage[] | undefined;
+}
+
+type JSONValue =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: JSONValue }
+  | JSONValue[];
+
+// Type for JupyterLab state database values
+type StateDBValue = { [key: string]: JSONValue };
 
 export interface IStreamEvent {
   type: 'text' | 'tool_use' | 'tool_result';
@@ -26,11 +62,14 @@ export class Assistant {
   private tools: Map<string, McpTool[]> = new Map();
   private anthropic: Anthropic;
   private modelName: string;
+  private stateDB: IStateDB;
+  private readonly stateKey: string = 'mcp-chat:conversation-history';
 
   constructor(
     mcpClients: Map<string, Client>,
     modelName: string,
-    apiKey: string
+    apiKey: string,
+    stateDB: IStateDB
   ) {
     this.mcpClients = mcpClients;
     this.anthropic = new Anthropic({
@@ -38,6 +77,8 @@ export class Assistant {
       dangerouslyAllowBrowser: true
     });
     this.modelName = modelName;
+    this.stateDB = stateDB;
+    this.loadHistory();
   }
 
   /**
@@ -93,6 +134,7 @@ export class Assistant {
         role: 'user',
         content: message
       });
+      await this.saveHistory();
     }
     let keepProcessing = true;
     try {
@@ -164,6 +206,7 @@ export class Assistant {
                   role: 'assistant',
                   content: content
                 });
+                await this.saveHistory();
                 try {
                   // Parse server name and tool name
                   const [serverName, toolName] = currentToolName.split(
@@ -223,6 +266,7 @@ export class Assistant {
                     role: 'user',
                     content: [toolResultBlock]
                   });
+                  await this.saveHistory();
                 } catch (error) {
                   console.error('Error executing tool:', error);
                   const errorBlock: Anthropic.ContentBlockParam = {
@@ -248,6 +292,7 @@ export class Assistant {
                   role: 'assistant',
                   content: [textBlock]
                 });
+                await this.saveHistory();
                 textDelta = '';
                 jsonDelta = '';
               }
@@ -278,5 +323,93 @@ export class Assistant {
    */
   clearHistory(): void {
     this.messages = [];
+    void this.stateDB.remove(this.stateKey);
+  }
+
+  /**
+   * Save conversation history to state database
+   */
+  private async saveHistory(): Promise<void> {
+    // Convert messages to a serializable format
+    const serializedMessages = this.messages.map(msg => {
+      const serializedContent = Array.isArray(msg.content)
+        ? msg.content.map(
+            (block: Anthropic.ContentBlockParam): ISerializedContentBlock => {
+              if ('text' in block) {
+                return { type: 'text', text: block.text };
+              }
+              // Convert complex types to a serializable format
+              const serialized: ISerializedContentBlock = {
+                type: block.type,
+                ...Object.entries(block).reduce(
+                  (acc, [key, value]) => {
+                    // Only include serializable values
+                    if (
+                      typeof value === 'string' ||
+                      typeof value === 'number' ||
+                      typeof value === 'boolean' ||
+                      value === null
+                    ) {
+                      acc[key] = value;
+                    } else if (typeof value === 'object') {
+                      // Convert objects to JSON-safe format
+                      acc[key] = JSON.parse(JSON.stringify(value)) as JSONValue;
+                    }
+                    return acc;
+                  },
+                  {} as Record<string, JSONValue>
+                )
+              };
+              return serialized;
+            }
+          )
+        : msg.content;
+
+      return {
+        role: msg.role,
+        content: serializedContent
+      };
+    });
+
+    const history = {
+      messages: serializedMessages
+    } as StateDBValue;
+
+    await this.stateDB.save(this.stateKey, history);
+  }
+
+  /**
+   * Load conversation history from state database
+   */
+  private async loadHistory(): Promise<void> {
+    const savedData = await this.stateDB.fetch(this.stateKey);
+    if (
+      savedData &&
+      typeof savedData === 'object' &&
+      'messages' in savedData &&
+      Array.isArray((savedData as ISerializedHistory).messages)
+    ) {
+      const savedMessages = (savedData as ISerializedHistory).messages;
+      // Convert saved data back to MessageParam array
+      this.messages = savedMessages.map(msg => {
+        const content = Array.isArray(msg.content)
+          ? msg.content.map((block: ISerializedContentBlock) => {
+              if (block.type === 'text') {
+                return {
+                  type: 'text',
+                  text: block.text
+                } as Anthropic.TextBlockParam;
+              }
+              // Handle other block types as needed
+              return block as Anthropic.ContentBlockParam;
+            })
+          : msg.content;
+
+        return {
+          role: msg.role as Anthropic.Messages.MessageParam['role'],
+          content
+        };
+      });
+    }
   }
 }
