@@ -6,9 +6,10 @@ import {
 } from '@jupyterlab/application';
 import { ICommandPalette } from '@jupyterlab/apputils';
 import { Widget, Panel } from '@lumino/widgets';
+import { LabIcon } from '@jupyterlab/ui-components';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { INotebookTracker } from '@jupyterlab/notebook';
-
+import { IStateDB } from '@jupyterlab/statedb';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
@@ -22,11 +23,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
   id: 'mcp-client-jupyter-chat:plugin',
   description: 'A JupyterLab extension for Chat with AI supporting MCP',
   autoStart: true,
-  requires: [ICommandPalette, INotebookTracker, IRenderMimeRegistry],
+  requires: [ICommandPalette, IStateDB, INotebookTracker, IRenderMimeRegistry],
   optional: [ISettingRegistry],
-  activate: (
+  activate: async (
     app: JupyterFrontEnd,
     palette: ICommandPalette,
+    stateDB: IStateDB,
     notebookTracker: INotebookTracker,
     rendermime: IRenderMimeRegistry,
     settingRegistry: ISettingRegistry | null
@@ -119,8 +121,133 @@ const plugin: JupyterFrontEndPlugin<void> = {
     const div = document.createElement('div');
     div.classList.add('mcp-chat');
 
+    // Create chat area
     const chatArea = document.createElement('div');
     chatArea.classList.add('mcp-chat-area');
+
+    // Function to display chat list
+    const displayChatList = () => {
+      if (!assistant) {
+        console.warn('Cannot display chat list: Assistant not initialized');
+        return;
+      }
+
+      // Clear existing messages
+      chatArea.innerHTML = '';
+
+      // Create chat list container
+      const chatListContainer = document.createElement('div');
+      chatListContainer.classList.add('mcp-chat-list');
+
+      // Get and display chat list
+      const chats = assistant.getChats();
+      chats.forEach(chat => {
+        const chatItem = document.createElement('div');
+        chatItem.classList.add('mcp-chat-item');
+
+        const chatTitle = document.createElement('div');
+        chatTitle.classList.add('mcp-chat-title');
+        chatTitle.textContent = chat.title;
+
+        const chatDate = document.createElement('div');
+        chatDate.classList.add('mcp-chat-date');
+        chatDate.textContent = new Date(
+          parseInt(chat.createdAt)
+        ).toLocaleString();
+
+        chatItem.appendChild(chatTitle);
+        chatItem.appendChild(chatDate);
+
+        chatItem.addEventListener('click', () => {
+          if (assistant?.loadChat(chat.id)) {
+            displayCurrentChat();
+          }
+        });
+
+        chatListContainer.appendChild(chatItem);
+      });
+
+      chatArea.appendChild(chatListContainer);
+    };
+
+    // Function to display current chat
+    const displayCurrentChat = () => {
+      if (!assistant) {
+        console.warn('Cannot display chat: Assistant not initialized');
+        return;
+      }
+
+      // Clear existing messages
+      chatArea.innerHTML = '';
+
+      // Get and display current chat
+      const messages = assistant.getCurrentChat();
+      messages.forEach(msg => {
+        if (typeof msg.content === 'string') {
+          addMessage(msg.content, msg.role === 'user');
+        } else {
+          // Convert content blocks to IStreamEvent array
+          const events: IStreamEvent[] = msg.content.map(block => {
+            if ('text' in block) {
+              return {
+                type: 'text',
+                text: block.text
+              } as IStreamEvent;
+            } else if (block.type === 'tool_use') {
+              return {
+                type: 'tool_use',
+                name: block.name,
+                input: block.input as Record<string, unknown>
+              } as IStreamEvent;
+            } else if (block.type === 'tool_result') {
+              return {
+                type: 'tool_result',
+                content: JSON.stringify(block.content)
+              } as IStreamEvent;
+            }
+            return {
+              type: 'text',
+              text: 'Unsupported content type'
+            } as IStreamEvent;
+          });
+          addMessage(events, msg.role === 'user');
+        }
+      });
+    };
+
+    // Create toolbar
+    const toolbar = document.createElement('div');
+    toolbar.classList.add('mcp-toolbar');
+
+    // New Chat button
+    const newChatButton = document.createElement('button');
+    newChatButton.classList.add('mcp-toolbar-button');
+    newChatButton.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      New Chat
+    `;
+    newChatButton.addEventListener('click', () => {
+      if (assistant) {
+        assistant.createNewChat();
+        displayCurrentChat();
+      }
+    });
+
+    // History button
+    const historyButton = document.createElement('button');
+    historyButton.classList.add('mcp-toolbar-button');
+    historyButton.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      History
+    `;
+    historyButton.addEventListener('click', displayChatList);
+
+    toolbar.appendChild(newChatButton);
+    toolbar.appendChild(historyButton);
 
     const inputArea = document.createElement('div');
     inputArea.classList.add('mcp-input-area');
@@ -217,9 +344,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
         assistant = new Assistant(
           mcpClients,
           selectedModel.name,
-          selectedModel.apiKey
+          selectedModel.apiKey,
+          stateDB
         );
         await assistant.initializeTools();
+        // Wait for history to be loaded before displaying
+        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to ensure history is loaded
+        displayCurrentChat();
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -239,8 +370,14 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
     };
 
-    // Initial connection attempt
-    initializeConnections().catch(console.error);
+    // Initial connection attempt and display history
+    initializeConnections()
+      .then(() => {
+        if (assistant) {
+          displayCurrentChat();
+        }
+      })
+      .catch(console.error);
 
     // Auto-resize textarea
     input.addEventListener('input', () => {
@@ -500,13 +637,28 @@ const plugin: JupyterFrontEndPlugin<void> = {
     modelSelectWrapper.appendChild(modelSelect);
     inputArea.appendChild(inputWrapper);
     inputArea.appendChild(modelSelectWrapper);
+    div.appendChild(toolbar);
     div.appendChild(chatArea);
     div.appendChild(inputArea);
     content.node.appendChild(div);
 
+    // Create MCP logo icon
+    const mcpChatLogoStr = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="4" y="4" width="16" height="16" rx="2"/>
+        <path d="M8 8h8M8 12h8M8 16h8"/>
+        <circle cx="4" cy="8" r="1"/>
+        <circle cx="20" cy="8" r="1"/>
+        <circle cx="4" cy="16" r="1"/>
+        <circle cx="20" cy="16" r="1"/>
+      </svg>
+    `;
+    const mcpLogo = new LabIcon({ name: 'mcp:logo', svgstr: mcpChatLogoStr });
+
     const widget = new Panel();
     widget.id = 'mcp-chat';
-    widget.title.label = 'MCP Chat';
+    widget.title.label = '';
+    widget.title.icon = mcpLogo;
     widget.title.closable = true;
     widget.title.caption = 'MCP Chat Interface';
     widget.addWidget(content);
@@ -514,8 +666,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // Add an application command
     const command = 'mcp:open-chat';
     app.commands.addCommand(command, {
-      label: 'Open MCP Chat',
-      caption: 'Open the MCP Chat interface',
+      label: 'Open Chat',
+      caption: 'Open Chat Interface',
       isEnabled: () => true,
       execute: () => {
         if (!widget.isAttached) {
@@ -528,6 +680,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     // Add the command to the palette
     palette.addItem({ command, category: 'MCP' });
+
+    // Automatically open the MCP Chat tab on activation
+    app.commands.execute(command);
   }
 };
 
