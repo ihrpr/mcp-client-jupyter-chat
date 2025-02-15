@@ -665,6 +665,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     // Add the command to the palette
     palette.addItem({ command, category: 'MCP' });
+
+    // Automatically open the MCP Chat tab on activation
+    app.commands.execute(command);
   }
 };
 
