@@ -25,9 +25,16 @@ interface ISerializedMessage {
   [key: string]: string | ISerializedContentBlock[] | undefined;
 }
 
-interface ISerializedHistory {
+interface IChat {
+  id: string;
+  title: string;
   messages: ISerializedMessage[];
-  [key: string]: ISerializedMessage[] | undefined;
+  createdAt: string;
+}
+
+interface ISerializedHistory {
+  chats: IChat[];
+  currentChatId?: string;
 }
 
 type JSONValue =
@@ -57,7 +64,8 @@ export interface INotebookContext {
 
 export class Assistant {
   SERVER_TOOL_SEPARATOR: string = '__';
-  private messages: Anthropic.Messages.MessageParam[] = [];
+  private chats: Map<string, Anthropic.Messages.MessageParam[]> = new Map();
+  private currentChatId: string | null = null;
   private mcpClients: Map<string, Client>;
   private tools: Map<string, McpTool[]> = new Map();
   private anthropic: Anthropic;
@@ -79,6 +87,24 @@ export class Assistant {
     this.modelName = modelName;
     this.stateDB = stateDB;
     this.loadHistory();
+  }
+
+  private generateChatId(): string {
+    return `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private generateChatTitle(
+    messages: Anthropic.Messages.MessageParam[]
+  ): string {
+    if (messages.length === 0) {
+      return 'New Chat';
+    }
+    const firstMessage = messages[0];
+    if (typeof firstMessage.content === 'string') {
+      const title = firstMessage.content.slice(0, 30);
+      return title.length < firstMessage.content.length ? `${title}...` : title;
+    }
+    return 'New Chat';
   }
 
   /**
@@ -115,12 +141,79 @@ export class Assistant {
   }
 
   /**
+   * Get all chats
+   */
+  getChats(): { id: string; title: string; createdAt: string }[] {
+    return Array.from(this.chats.entries())
+      .map(([id, messages]) => ({
+        id,
+        title: this.generateChatTitle(messages),
+        createdAt: id.split('-')[1] // Extract timestamp from ID
+      }))
+      .sort((a, b) => parseInt(b.createdAt) - parseInt(a.createdAt)); // Sort by creation time, newest first
+  }
+
+  /**
+   * Get the current chat messages
+   */
+  getCurrentChat(): Anthropic.Messages.MessageParam[] {
+    return this.currentChatId ? this.chats.get(this.currentChatId) || [] : [];
+  }
+
+  /**
+   * Create a new chat
+   */
+  createNewChat(): string {
+    const chatId = this.generateChatId();
+    this.chats.set(chatId, []);
+    this.currentChatId = chatId;
+    void this.saveHistory();
+    return chatId;
+  }
+
+  /**
+   * Load a specific chat
+   */
+  loadChat(chatId: string): boolean {
+    if (this.chats.has(chatId)) {
+      this.currentChatId = chatId;
+      void this.saveHistory();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Delete the current chat
+   */
+  deleteCurrentChat(): void {
+    if (this.currentChatId) {
+      this.chats.delete(this.currentChatId);
+      // Set current chat to most recent, or create new if none exist
+      const remainingChats = Array.from(this.chats.keys());
+      if (remainingChats.length > 0) {
+        this.currentChatId = remainingChats[remainingChats.length - 1];
+      } else {
+        this.createNewChat();
+      }
+      void this.saveHistory();
+    }
+  }
+
+  /**
    * Process a message and handle any tool use with streaming
    */
   async *sendMessage(
     userMessage: string,
     context: INotebookContext
   ): AsyncGenerator<IStreamEvent> {
+    // Create new chat if none exists
+    if (!this.currentChatId) {
+      this.createNewChat();
+    }
+
+    const currentMessages = this.getCurrentChat();
+
     // Only add user message if it's not empty (empty means continuing from tool result)
     if (userMessage) {
       let message = userMessage;
@@ -130,12 +223,13 @@ export class Assistant {
       if (context.activeCellID !== null) {
         message += `\n Active selected cell ID: ${context.activeCellID}`;
       }
-      this.messages.push({
+      currentMessages.push({
         role: 'user',
         content: message
       });
       await this.saveHistory();
     }
+
     let keepProcessing = true;
     try {
       while (keepProcessing) {
@@ -144,11 +238,12 @@ export class Assistant {
         let currentToolName = '';
         let currentToolID = '';
         keepProcessing = false;
+
         // Create streaming request to Claude
         const stream = this.anthropic.messages.stream({
           model: this.modelName,
           max_tokens: 4096,
-          messages: this.messages,
+          messages: currentMessages,
           tools: Array.from(this.tools.entries()).flatMap(
             ([serverName, tools]) =>
               tools.map(tool => ({
@@ -159,6 +254,7 @@ export class Assistant {
           ),
           system: 'Before answering, explain your reasoning step-by-step.'
         });
+
         // Process the stream
         for await (const event of stream) {
           if (event.type === 'content_block_start') {
@@ -202,7 +298,7 @@ export class Assistant {
                   name: currentToolName,
                   input: toolInput
                 };
-                this.messages.push({
+                currentMessages.push({
                   role: 'assistant',
                   content: content
                 });
@@ -262,7 +358,7 @@ export class Assistant {
                     name: currentToolName,
                     content: JSON.stringify(toolContent)
                   };
-                  this.messages.push({
+                  currentMessages.push({
                     role: 'user',
                     content: [toolResultBlock]
                   });
@@ -288,7 +384,7 @@ export class Assistant {
                   type: 'text',
                   text: textDelta
                 };
-                this.messages.push({
+                currentMessages.push({
                   role: 'assistant',
                   content: [textBlock]
                 });
@@ -312,104 +408,128 @@ export class Assistant {
   }
 
   /**
-   * Get the conversation history
-   */
-  getHistory(): Anthropic.Messages.MessageParam[] {
-    return this.messages;
-  }
-
-  /**
-   * Clear the conversation history
-   */
-  clearHistory(): void {
-    this.messages = [];
-    void this.stateDB.remove(this.stateKey);
-  }
-
-  /**
-   * Save conversation history to state database
+   * Save all chats to state database
    */
   private async saveHistory(): Promise<void> {
-    // Convert messages to a serializable format
-    const serializedMessages = this.messages.map(msg => {
-      const serializedContent = Array.isArray(msg.content)
-        ? msg.content.map(
-            (block: Anthropic.ContentBlockParam): ISerializedContentBlock => {
-              if ('text' in block) {
-                return { type: 'text', text: block.text };
-              }
-              // Convert complex types to a serializable format
-              const serialized: ISerializedContentBlock = {
-                type: block.type,
-                ...Object.entries(block).reduce(
-                  (acc, [key, value]) => {
-                    // Only include serializable values
-                    if (
-                      typeof value === 'string' ||
-                      typeof value === 'number' ||
-                      typeof value === 'boolean' ||
-                      value === null
-                    ) {
-                      acc[key] = value;
-                    } else if (typeof value === 'object') {
-                      // Convert objects to JSON-safe format
-                      acc[key] = JSON.parse(JSON.stringify(value)) as JSONValue;
-                    }
-                    return acc;
-                  },
-                  {} as Record<string, JSONValue>
-                )
-              };
-              return serialized;
-            }
-          )
-        : msg.content;
+    // Convert all chats to a serializable format
+    const serializedChats = Array.from(this.chats.entries()).map(
+      ([id, messages]) => ({
+        id,
+        title: this.generateChatTitle(messages),
+        createdAt: id.split('-')[1],
+        messages: messages.map(msg => {
+          const serializedContent = Array.isArray(msg.content)
+            ? msg.content.map(
+                (
+                  block: Anthropic.ContentBlockParam
+                ): ISerializedContentBlock => {
+                  if ('text' in block) {
+                    return { type: 'text', text: block.text };
+                  }
+                  // Convert complex types to a serializable format
+                  const serialized: ISerializedContentBlock = {
+                    type: block.type,
+                    ...Object.entries(block).reduce(
+                      (acc, [key, value]) => {
+                        // Only include serializable values
+                        if (
+                          typeof value === 'string' ||
+                          typeof value === 'number' ||
+                          typeof value === 'boolean' ||
+                          value === null
+                        ) {
+                          acc[key] = value;
+                        } else if (typeof value === 'object') {
+                          // Convert objects to JSON-safe format
+                          acc[key] = JSON.parse(
+                            JSON.stringify(value)
+                          ) as JSONValue;
+                        }
+                        return acc;
+                      },
+                      {} as Record<string, JSONValue>
+                    )
+                  };
+                  return serialized;
+                }
+              )
+            : msg.content;
 
-      return {
-        role: msg.role,
-        content: serializedContent
-      };
-    });
+          return {
+            role: msg.role,
+            content: serializedContent
+          };
+        })
+      })
+    );
 
     const history = {
-      messages: serializedMessages
+      chats: serializedChats,
+      currentChatId: this.currentChatId
     } as StateDBValue;
 
     await this.stateDB.save(this.stateKey, history);
   }
 
   /**
-   * Load conversation history from state database
+   * Load all chats from state database
    */
   private async loadHistory(): Promise<void> {
     const savedData = await this.stateDB.fetch(this.stateKey);
     if (
       savedData &&
       typeof savedData === 'object' &&
-      'messages' in savedData &&
-      Array.isArray((savedData as ISerializedHistory).messages)
+      'chats' in savedData &&
+      Array.isArray(savedData.chats)
     ) {
-      const savedMessages = (savedData as ISerializedHistory).messages;
-      // Convert saved data back to MessageParam array
-      this.messages = savedMessages.map(msg => {
-        const content = Array.isArray(msg.content)
-          ? msg.content.map((block: ISerializedContentBlock) => {
-              if (block.type === 'text') {
-                return {
-                  type: 'text',
-                  text: block.text
-                } as Anthropic.TextBlockParam;
-              }
-              // Handle other block types as needed
-              return block as Anthropic.ContentBlockParam;
-            })
-          : msg.content;
+      // Type assertion after runtime checks
+      const savedHistory: ISerializedHistory = {
+        chats: savedData.chats,
+        currentChatId: savedData.currentChatId as string | undefined
+      };
+      this.chats.clear();
 
-        return {
-          role: msg.role as Anthropic.Messages.MessageParam['role'],
-          content
-        };
+      savedHistory.chats.forEach(chat => {
+        this.chats.set(
+          chat.id,
+          chat.messages.map(msg => {
+            const content = Array.isArray(msg.content)
+              ? msg.content.map((block: ISerializedContentBlock) => {
+                  if (block.type === 'text') {
+                    return {
+                      type: 'text',
+                      text: block.text
+                    } as Anthropic.TextBlockParam;
+                  }
+                  // Handle other block types as needed
+                  return block as Anthropic.ContentBlockParam;
+                })
+              : msg.content;
+
+            return {
+              role: msg.role as Anthropic.Messages.MessageParam['role'],
+              content
+            };
+          })
+        );
       });
+
+      // Restore current chat ID
+      if (
+        savedHistory.currentChatId &&
+        this.chats.has(savedHistory.currentChatId)
+      ) {
+        this.currentChatId = savedHistory.currentChatId;
+      } else if (this.chats.size > 0) {
+        // Set to most recent chat if current not found
+        this.currentChatId = Array.from(this.chats.keys())[this.chats.size - 1];
+      } else {
+        // Create new chat if none exist
+        this.createNewChat();
+      }
+    } else {
+      // Initialize with a new chat if no history exists
+      this.createNewChat();
     }
   }
 }

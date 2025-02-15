@@ -124,19 +124,64 @@ const plugin: JupyterFrontEndPlugin<void> = {
     const chatArea = document.createElement('div');
     chatArea.classList.add('mcp-chat-area');
 
-    // Function to display chat history
-    // Function to display chat history
-    const displayHistory = () => {
+    // Function to display chat list
+    const displayChatList = () => {
       if (!assistant) {
+        console.warn('Cannot display chat list: Assistant not initialized');
         return;
       }
 
       // Clear existing messages
       chatArea.innerHTML = '';
 
-      // Get and display history
-      const history = assistant.getHistory();
-      history.forEach(msg => {
+      // Create chat list container
+      const chatListContainer = document.createElement('div');
+      chatListContainer.classList.add('mcp-chat-list');
+
+      // Get and display chat list
+      const chats = assistant.getChats();
+      chats.forEach(chat => {
+        const chatItem = document.createElement('div');
+        chatItem.classList.add('mcp-chat-item');
+
+        const chatTitle = document.createElement('div');
+        chatTitle.classList.add('mcp-chat-title');
+        chatTitle.textContent = chat.title;
+
+        const chatDate = document.createElement('div');
+        chatDate.classList.add('mcp-chat-date');
+        chatDate.textContent = new Date(
+          parseInt(chat.createdAt)
+        ).toLocaleString();
+
+        chatItem.appendChild(chatTitle);
+        chatItem.appendChild(chatDate);
+
+        chatItem.addEventListener('click', () => {
+          if (assistant?.loadChat(chat.id)) {
+            displayCurrentChat();
+          }
+        });
+
+        chatListContainer.appendChild(chatItem);
+      });
+
+      chatArea.appendChild(chatListContainer);
+    };
+
+    // Function to display current chat
+    const displayCurrentChat = () => {
+      if (!assistant) {
+        console.warn('Cannot display chat: Assistant not initialized');
+        return;
+      }
+
+      // Clear existing messages
+      chatArea.innerHTML = '';
+
+      // Get and display current chat
+      const messages = assistant.getCurrentChat();
+      messages.forEach(msg => {
         if (typeof msg.content === 'string') {
           addMessage(msg.content, msg.role === 'user');
         } else {
@@ -183,9 +228,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
       New Chat
     `;
     newChatButton.addEventListener('click', () => {
-      chatArea.innerHTML = '';
       if (assistant) {
-        assistant.clearHistory();
+        assistant.createNewChat();
+        displayCurrentChat();
       }
     });
 
@@ -198,7 +243,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
       </svg>
       History
     `;
-    historyButton.addEventListener('click', displayHistory);
+    historyButton.addEventListener('click', displayChatList);
 
     toolbar.appendChild(newChatButton);
     toolbar.appendChild(historyButton);
@@ -302,8 +347,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
           stateDB
         );
         await assistant.initializeTools();
-        // Display history after initializing assistant
-        displayHistory();
+        // Wait for history to be loaded before displaying
+        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to ensure history is loaded
+        displayCurrentChat();
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -327,7 +373,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     initializeConnections()
       .then(() => {
         if (assistant) {
-          displayHistory();
+          displayCurrentChat();
         }
       })
       .catch(console.error);

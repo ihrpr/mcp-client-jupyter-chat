@@ -46,6 +46,35 @@
   padding: 16px;
 }
 
+.mcp-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcp-chat-item {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--jp-layout-color2);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.mcp-chat-item:hover {
+  background: var(--jp-layout-color3);
+}
+
+.mcp-chat-title {
+  font-size: var(--jp-ui-font-size1);
+  color: var(--jp-ui-font-color0);
+  margin-bottom: 4px;
+}
+
+.mcp-chat-date {
+  font-size: var(--jp-ui-font-size0);
+  color: var(--jp-ui-font-color2);
+}
+
 .mcp-message {
   font-size: var(--jp-ui-font-size1);
   margin-bottom: 16px;
