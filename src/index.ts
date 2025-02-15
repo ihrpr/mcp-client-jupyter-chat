@@ -6,6 +6,7 @@ import {
 } from '@jupyterlab/application';
 import { ICommandPalette } from '@jupyterlab/apputils';
 import { Widget, Panel } from '@lumino/widgets';
+import { LabIcon } from '@jupyterlab/ui-components';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { IStateDB } from '@jupyterlab/statedb';
@@ -641,9 +642,23 @@ const plugin: JupyterFrontEndPlugin<void> = {
     div.appendChild(inputArea);
     content.node.appendChild(div);
 
+    // Create MCP logo icon
+    const mcpChatLogoStr = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="4" y="4" width="16" height="16" rx="2"/>
+        <path d="M8 8h8M8 12h8M8 16h8"/>
+        <circle cx="4" cy="8" r="1"/>
+        <circle cx="20" cy="8" r="1"/>
+        <circle cx="4" cy="16" r="1"/>
+        <circle cx="20" cy="16" r="1"/>
+      </svg>
+    `;
+    const mcpLogo = new LabIcon({ name: 'mcp:logo', svgstr: mcpChatLogoStr });
+
     const widget = new Panel();
     widget.id = 'mcp-chat';
-    widget.title.label = 'MCP Chat';
+    widget.title.label = '';
+    widget.title.icon = mcpLogo;
     widget.title.closable = true;
     widget.title.caption = 'MCP Chat Interface';
     widget.addWidget(content);
@@ -651,8 +666,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // Add an application command
     const command = 'mcp:open-chat';
     app.commands.addCommand(command, {
-      label: 'Open MCP Chat',
-      caption: 'Open the MCP Chat interface',
+      label: 'Open Chat',
+      caption: 'Open Chat Interface',
       isEnabled: () => true,
       execute: () => {
         if (!widget.isAttached) {

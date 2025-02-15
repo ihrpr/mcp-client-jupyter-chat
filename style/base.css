@@ -11,6 +11,14 @@
   flex-direction: column;
 }
 
+.mcp-logo {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
 .mcp-toolbar {
   display: flex;
   padding: 8px;
