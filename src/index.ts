@@ -120,9 +120,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
     const div = document.createElement('div');
     div.classList.add('mcp-chat');
 
+    // Create chat area
     const chatArea = document.createElement('div');
     chatArea.classList.add('mcp-chat-area');
 
+    // Function to display chat history
     // Function to display chat history
     const displayHistory = () => {
       if (!assistant) {
@@ -166,6 +168,40 @@ const plugin: JupyterFrontEndPlugin<void> = {
         }
       });
     };
+
+    // Create toolbar
+    const toolbar = document.createElement('div');
+    toolbar.classList.add('mcp-toolbar');
+
+    // New Chat button
+    const newChatButton = document.createElement('button');
+    newChatButton.classList.add('mcp-toolbar-button');
+    newChatButton.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      New Chat
+    `;
+    newChatButton.addEventListener('click', () => {
+      chatArea.innerHTML = '';
+      if (assistant) {
+        assistant.clearHistory();
+      }
+    });
+
+    // History button
+    const historyButton = document.createElement('button');
+    historyButton.classList.add('mcp-toolbar-button');
+    historyButton.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      History
+    `;
+    historyButton.addEventListener('click', displayHistory);
+
+    toolbar.appendChild(newChatButton);
+    toolbar.appendChild(historyButton);
 
     const inputArea = document.createElement('div');
     inputArea.classList.add('mcp-input-area');
@@ -554,6 +590,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     modelSelectWrapper.appendChild(modelSelect);
     inputArea.appendChild(inputWrapper);
     inputArea.appendChild(modelSelectWrapper);
+    div.appendChild(toolbar);
     div.appendChild(chatArea);
     div.appendChild(inputArea);
     content.node.appendChild(div);
