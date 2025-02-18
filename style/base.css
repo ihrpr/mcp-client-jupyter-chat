@@ -71,7 +71,7 @@
   background: var(--jp-layout-color0);
   border: 1px solid var(--jp-border-color1);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
   min-width: 280px;
   z-index: 1000;
   display: none;
@@ -83,6 +83,7 @@
 .mcp-tools-popup.show {
   display: block;
 }
+
 
 .mcp-servers-popup h3,
 .mcp-tools-popup h3 {
@@ -147,7 +148,9 @@
   justify-content: space-between;
   border-radius: 4px;
   margin: 2px 0;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .mcp-tools-item:hover {
