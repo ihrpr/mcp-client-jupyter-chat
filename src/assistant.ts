@@ -68,6 +68,13 @@ export class Assistant {
   private currentChatId: string | null = null;
   private mcpClients: Map<string, Client>;
   private tools: Map<string, McpTool[]> = new Map();
+
+  /**
+   * Get tools for a specific server
+   */
+  getServerTools(serverName: string): McpTool[] {
+    return this.tools.get(serverName) || [];
+  }
   private anthropic: Anthropic;
   private modelName: string;
   private stateDB: IStateDB;
@@ -119,7 +126,9 @@ export class Assistant {
       for (const [serverName, client] of this.mcpClients) {
         try {
           const toolList = await client.listTools();
-          this.tools.set(serverName, toolList.tools);
+          if (toolList && Array.isArray(toolList.tools)) {
+            this.tools.set(serverName, toolList.tools);
+          }
           console.log(
             `Initialized ${toolList.tools.length} tools from ${serverName}`
           );

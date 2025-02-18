@@ -26,11 +26,29 @@
   position: relative;
 }
 
+.mcp-tools-button {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  margin-left: auto;
+}
+
+.mcp-tools-button:hover {
+  opacity: 1;
+}
+
+.mcp-tools-button svg {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .mcp-plug-icon {
   width: 20px;
   height: 20px;
   cursor: pointer;
-  margin-left: auto;
+  margin-left: 8px;
   opacity: 0.7;
   transition: opacity 0.2s;
   transform: rotate(45deg);
@@ -45,7 +63,8 @@
   stroke-linejoin: round;
 }
 
-.mcp-servers-popup {
+.mcp-servers-popup,
+.mcp-tools-popup {
   position: absolute;
   top: calc(100% + 8px);
   right: 8px;
@@ -58,14 +77,35 @@
   display: none;
 }
 
-.mcp-servers-popup.show {
+.mcp-servers-popup.show,
+.mcp-tools-popup.show {
   display: block;
 }
 
-.mcp-servers-list {
+.mcp-servers-list,
+.mcp-tools-list {
   list-style: none;
   margin: 0;
   padding: 8px 0;
+}
+
+.mcp-tools-item {
+  padding: 8px 16px;
+  color: var(--jp-ui-font-color1);
+  font-size: var(--jp-ui-font-size1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mcp-tools-item:hover {
+  background: var(--jp-layout-color2);
+}
+
+.mcp-tools-server {
+  color: var(--jp-ui-font-color2);
+  font-size: var(--jp-ui-font-size0);
+  font-style: italic;
 }
 
 .mcp-server-item {
