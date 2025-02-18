@@ -246,8 +246,148 @@ const plugin: JupyterFrontEndPlugin<void> = {
     `;
     historyButton.addEventListener('click', displayChatList);
 
+    // Add tools button
+    const toolsButton = document.createElement('div');
+    toolsButton.classList.add('mcp-tools-button');
+    toolsButton.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+      </svg>
+    `;
+
+    // Create tools popup
+    const toolsPopup = document.createElement('div');
+    toolsPopup.classList.add('mcp-tools-popup');
+
+    // Add click handler for tools button
+    toolsButton.addEventListener('click', async () => {
+      if (!assistant) {
+        console.warn('Cannot list tools: Assistant not initialized');
+        return;
+      }
+
+      // Clear previous content
+      toolsPopup.innerHTML = '';
+
+      // Add header
+      const header = document.createElement('div');
+      header.classList.add('mcp-servers-header');
+      header.textContent = 'Available MCP Tools';
+      toolsPopup.appendChild(header);
+
+      // Create tools list
+      const toolsList = document.createElement('ul');
+      toolsList.classList.add('mcp-tools-list');
+
+      let totalTools = 0;
+
+      for (const [serverName] of mcpClients.entries()) {
+        try {
+          const serverTools = assistant.getServerTools(serverName);
+          if (serverTools.length > 0) {
+            serverTools.forEach(tool => {
+              totalTools++;
+              const toolItem = document.createElement('li');
+              toolItem.classList.add('mcp-tools-item');
+
+              const toolInfo = document.createElement('div');
+              toolInfo.innerHTML = `
+                ${tool.name}
+                <div class="mcp-tools-server">Server: ${serverName}</div>
+              `;
+
+              toolItem.appendChild(toolInfo);
+              toolsList.appendChild(toolItem);
+            });
+          }
+        } catch (error) {
+          console.error(
+            `Failed to list tools for server ${serverName}:`,
+            error
+          );
+        }
+      }
+
+      if (totalTools === 0) {
+        const noTools = document.createElement('div');
+        noTools.classList.add('mcp-no-servers');
+        noTools.textContent = 'No MCP tools available';
+        toolsList.appendChild(noTools);
+      }
+
+      toolsPopup.appendChild(toolsList);
+      toolsPopup.classList.toggle('show');
+    });
+
+    // Add plug icon
+    const plugIcon = document.createElement('div');
+    plugIcon.classList.add('mcp-plug-icon');
+    plugIcon.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18.36 5.64a9 9 0 11-12.73 0M12 2v10"/>
+      </svg>
+    `;
+
+    // Create servers popup
+    const serversPopup = document.createElement('div');
+    serversPopup.classList.add('mcp-servers-popup');
+
+    // Add click handler for plug icon
+    plugIcon.addEventListener('click', () => {
+      // Clear previous content
+      serversPopup.innerHTML = '';
+
+      // Add header
+      const header = document.createElement('div');
+      header.classList.add('mcp-servers-header');
+      header.textContent =
+        'All connected MCP servers (use settings to add/remove)';
+      serversPopup.appendChild(header);
+
+      // Create server list
+      const serverList = document.createElement('ul');
+      serverList.classList.add('mcp-servers-list');
+
+      if (mcpClients.size > 0) {
+        mcpClients.forEach((client, name) => {
+          const serverItem = document.createElement('li');
+          serverItem.classList.add('mcp-server-item');
+          serverItem.textContent = name;
+          serverList.appendChild(serverItem);
+        });
+      } else {
+        const noServers = document.createElement('div');
+        noServers.classList.add('mcp-no-servers');
+        noServers.textContent = 'No MCP servers connected';
+        serverList.appendChild(noServers);
+      }
+
+      serversPopup.appendChild(serverList);
+      serversPopup.classList.toggle('show');
+    });
+
+    // Close popups when clicking outside
+    document.addEventListener('click', event => {
+      if (
+        !toolsButton.contains(event.target as Node) &&
+        !toolsPopup.contains(event.target as Node)
+      ) {
+        toolsPopup.classList.remove('show');
+      }
+      if (
+        !plugIcon.contains(event.target as Node) &&
+        !serversPopup.contains(event.target as Node)
+      ) {
+        serversPopup.classList.remove('show');
+      }
+    });
+
     toolbar.appendChild(newChatButton);
     toolbar.appendChild(historyButton);
+    toolbar.appendChild(toolsButton);
+    toolbar.appendChild(toolsPopup);
+    toolbar.appendChild(plugIcon);
+    toolbar.appendChild(serversPopup);
 
     const inputArea = document.createElement('div');
     inputArea.classList.add('mcp-input-area');

@@ -23,6 +23,173 @@
   display: flex;
   padding: 8px;
   background: var(--jp-layout-color2);
+  position: relative;
+}
+
+.mcp-tools-button {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  margin-left: auto;
+}
+
+.mcp-tools-button:hover {
+  opacity: 1;
+}
+
+.mcp-tools-button svg {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mcp-plug-icon {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  margin-left: 8px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  transform: rotate(45deg);
+}
+
+.mcp-plug-icon:hover {
+  opacity: 1;
+}
+
+.mcp-plug-icon svg {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mcp-servers-popup,
+.mcp-tools-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 8px;
+  background: var(--jp-layout-color0);
+  border: 1px solid var(--jp-border-color1);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+  min-width: 280px;
+  z-index: 1000;
+  display: none;
+  animation: popup-fade 0.2s ease-out;
+  transform-origin: top right;
+}
+
+.mcp-servers-popup.show,
+.mcp-tools-popup.show {
+  display: block;
+}
+
+.mcp-servers-popup h3,
+.mcp-tools-popup h3 {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: var(--jp-ui-font-size1);
+  font-weight: 600;
+  color: var(--jp-ui-font-color0);
+  border-bottom: 1px solid var(--jp-border-color1);
+  background: var(--jp-layout-color1);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.mcp-servers-header,
+.mcp-tools-header {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: var(--jp-ui-font-size1);
+  font-weight: 600;
+  color: var(--jp-ui-font-color0);
+  background: var(--jp-layout-color2);
+  border-bottom: 1px solid var(--jp-border-color1);
+}
+
+.mcp-servers-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mcp-servers-header small {
+  font-size: var(--jp-ui-font-size0);
+  font-weight: normal;
+  color: var(--jp-ui-font-color2);
+}
+
+@keyframes popup-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.mcp-servers-list,
+.mcp-tools-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+
+.mcp-tools-item {
+  padding: 8px 12px;
+  color: var(--jp-ui-font-color1);
+  font-size: var(--jp-ui-font-size1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 4px;
+  margin: 2px 0;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+.mcp-tools-item:hover {
+  background: var(--jp-layout-color3);
+}
+
+.mcp-tools-server {
+  color: var(--jp-ui-font-color2);
+  font-size: var(--jp-ui-font-size0);
+  background: var(--jp-layout-color2);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 8px;
+}
+
+.mcp-server-item {
+  padding: 8px 12px;
+  color: var(--jp-ui-font-color1);
+  font-size: var(--jp-ui-font-size1);
+  border-radius: 4px;
+  margin: 2px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.2s;
+}
+
+.mcp-server-item:hover {
+  background: var(--jp-layout-color3);
+}
+
+.mcp-no-servers {
+  padding: 12px;
+  color: var(--jp-ui-font-color2);
+  font-style: italic;
+  text-align: center;
+  background: var(--jp-layout-color2);
+  border-radius: 4px;
+  margin: 4px;
 }
 
 .mcp-toolbar-button {
