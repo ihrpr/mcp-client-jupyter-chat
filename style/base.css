@@ -84,7 +84,6 @@
   display: block;
 }
 
-
 .mcp-servers-popup h3,
 .mcp-tools-popup h3 {
   margin: 0;
@@ -126,6 +125,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
