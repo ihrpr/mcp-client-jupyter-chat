@@ -246,8 +246,67 @@ const plugin: JupyterFrontEndPlugin<void> = {
     `;
     historyButton.addEventListener('click', displayChatList);
 
+    // Add plug icon
+    const plugIcon = document.createElement('div');
+    plugIcon.classList.add('mcp-plug-icon');
+    plugIcon.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18.36 5.64a9 9 0 11-12.73 0M12 2v10"/>
+      </svg>
+    `;
+
+    // Create servers popup
+    const serversPopup = document.createElement('div');
+    serversPopup.classList.add('mcp-servers-popup');
+
+    // Add click handler for plug icon
+    plugIcon.addEventListener('click', () => {
+      // Clear previous content
+      serversPopup.innerHTML = '';
+
+      // Add header
+      const header = document.createElement('div');
+      header.classList.add('mcp-servers-header');
+      header.textContent =
+        'All connected MCP servers (use settings to add/remove)';
+      serversPopup.appendChild(header);
+
+      // Create server list
+      const serverList = document.createElement('ul');
+      serverList.classList.add('mcp-servers-list');
+
+      if (mcpClients.size > 0) {
+        mcpClients.forEach((client, name) => {
+          const serverItem = document.createElement('li');
+          serverItem.classList.add('mcp-server-item');
+          serverItem.textContent = name;
+          serverList.appendChild(serverItem);
+        });
+      } else {
+        const noServers = document.createElement('div');
+        noServers.classList.add('mcp-no-servers');
+        noServers.textContent = 'No MCP servers connected';
+        serverList.appendChild(noServers);
+      }
+
+      serversPopup.appendChild(serverList);
+      serversPopup.classList.toggle('show');
+    });
+
+    // Close popup when clicking outside
+    document.addEventListener('click', event => {
+      if (
+        !plugIcon.contains(event.target as Node) &&
+        !serversPopup.contains(event.target as Node)
+      ) {
+        serversPopup.classList.remove('show');
+      }
+    });
+
     toolbar.appendChild(newChatButton);
     toolbar.appendChild(historyButton);
+    toolbar.appendChild(plugIcon);
+    toolbar.appendChild(serversPopup);
 
     const inputArea = document.createElement('div');
     inputArea.classList.add('mcp-input-area');
