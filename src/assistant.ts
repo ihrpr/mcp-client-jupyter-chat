@@ -248,19 +248,44 @@ export class Assistant {
         let currentToolID = '';
         keepProcessing = false;
 
+        const tools: Anthropic.Messages.Tool[] = Array.from(
+          this.tools.entries()
+        ).flatMap(([serverName, tools]) =>
+          tools.map(tool => ({
+            name: `${serverName}${this.SERVER_TOOL_SEPARATOR}${tool.name}`,
+            description: tool.description,
+            input_schema: tool.inputSchema
+          }))
+        );
+        // add cache to the last tool
+        tools[tools.length - 1].cache_control = { type: 'ephemeral' };
+
+        // Clone messages and add cache control to last message
+        const clonedMessagesWithCacheControl = [...currentMessages];
+        if (clonedMessagesWithCacheControl.length > 0) {
+          const lastMessageIndex = clonedMessagesWithCacheControl.length - 1;
+          const lastMessage = clonedMessagesWithCacheControl[lastMessageIndex];
+          if (typeof lastMessage.content === 'string') {
+            const lastText = lastMessage.content;
+            clonedMessagesWithCacheControl[lastMessageIndex] = {
+              ...lastMessage,
+              content: [
+                {
+                  type: 'text',
+                  text: lastText,
+                  cache_control: { type: 'ephemeral' }
+                }
+              ]
+            };
+          }
+        }
+
         // Create streaming request to Claude
         const stream = this.anthropic.messages.stream({
           model: this.modelName,
           max_tokens: 4096,
-          messages: currentMessages,
-          tools: Array.from(this.tools.entries()).flatMap(
-            ([serverName, tools]) =>
-              tools.map(tool => ({
-                name: `${serverName}${this.SERVER_TOOL_SEPARATOR}${tool.name}`,
-                description: tool.description,
-                input_schema: tool.inputSchema
-              }))
-          ),
+          messages: clonedMessagesWithCacheControl,
+          tools: tools,
           system: 'Before answering, explain your reasoning step-by-step.'
         });
 
