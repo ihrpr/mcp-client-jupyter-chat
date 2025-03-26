@@ -25,11 +25,20 @@ interface ISerializedMessage {
   [key: string]: string | ISerializedContentBlock[] | undefined;
 }
 
+interface ITokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+  [key: string]: number; // Add index signature to make it compatible with JSONValue
+}
+
 interface IChat {
   id: string;
   title: string;
   messages: ISerializedMessage[];
   createdAt: string;
+  tokenUsage: ITokenUsage;
 }
 
 interface ISerializedHistory {
@@ -65,6 +74,7 @@ export interface INotebookContext {
 export class Assistant {
   SERVER_TOOL_SEPARATOR: string = '__';
   private chats: Map<string, Anthropic.Messages.MessageParam[]> = new Map();
+  private chatTokenUsage: Map<string, ITokenUsage> = new Map();
   private currentChatId: string | null = null;
   private mcpClients: Map<string, Client>;
   private tools: Map<string, McpTool[]> = new Map();
@@ -168,6 +178,25 @@ export class Assistant {
   getCurrentChat(): Anthropic.Messages.MessageParam[] {
     return this.currentChatId ? this.chats.get(this.currentChatId) || [] : [];
   }
+  
+  /**
+   * Get token usage for the current chat
+   */
+  getCurrentChatTokenUsage(): ITokenUsage {
+    return this.currentChatId 
+      ? this.chatTokenUsage.get(this.currentChatId) || {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0
+        }
+      : {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0
+        };
+  }
 
   /**
    * Create a new chat
@@ -175,6 +204,12 @@ export class Assistant {
   createNewChat(): string {
     const chatId = this.generateChatId();
     this.chats.set(chatId, []);
+    this.chatTokenUsage.set(chatId, {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0
+    });
     this.currentChatId = chatId;
     void this.saveHistory();
     return chatId;
@@ -437,6 +472,25 @@ export class Assistant {
           finalMessage.usage?.input_tokens,
           finalMessage.usage?.output_tokens
         );
+        
+        // Update token usage for the current chat
+        if (this.currentChatId && finalMessage.usage) {
+          const currentUsage = this.chatTokenUsage.get(this.currentChatId) || {
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0
+          };
+          
+          this.chatTokenUsage.set(this.currentChatId, {
+            input_tokens: currentUsage.input_tokens + (finalMessage.usage.input_tokens || 0),
+            output_tokens: currentUsage.output_tokens + (finalMessage.usage.output_tokens || 0),
+            cache_creation_input_tokens: currentUsage.cache_creation_input_tokens + (finalMessage.usage.cache_creation_input_tokens || 0),
+            cache_read_input_tokens: currentUsage.cache_read_input_tokens + (finalMessage.usage.cache_read_input_tokens || 0)
+          });
+          
+          await this.saveHistory();
+        }
       }
     } catch (error) {
       console.error('Error processing message:', error);
@@ -457,6 +511,12 @@ export class Assistant {
         id,
         title: this.generateChatTitle(messages),
         createdAt: id.split('-')[1],
+        tokenUsage: this.chatTokenUsage.get(id) || {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0
+        },
         messages: messages.map(msg => {
           const serializedContent = Array.isArray(msg.content)
             ? msg.content.map(
@@ -503,8 +563,9 @@ export class Assistant {
       })
     );
 
+    // Convert to JSON-compatible structure
     const history = {
-      chats: serializedChats,
+      chats: JSON.parse(JSON.stringify(serializedChats)),
       currentChatId: this.currentChatId
     } as StateDBValue;
 
@@ -552,6 +613,18 @@ export class Assistant {
             };
           })
         );
+        
+        // Restore token usage for this chat
+        if (chat.tokenUsage) {
+          this.chatTokenUsage.set(chat.id, chat.tokenUsage);
+        } else {
+          this.chatTokenUsage.set(chat.id, {
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0
+          });
+        }
       });
 
       // Restore current chat ID

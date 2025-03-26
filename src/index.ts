@@ -179,6 +179,34 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
       // Clear existing messages
       chatArea.innerHTML = '';
+      
+      // Create token usage display
+      const tokenUsageDiv = document.createElement('div');
+      tokenUsageDiv.classList.add('mcp-token-usage');
+      const tokenUsage = assistant.getCurrentChatTokenUsage();
+      
+      const totalInputTokens = tokenUsage.input_tokens;
+      const totalOutputTokens = tokenUsage.output_tokens;
+      const cacheCreationTokens = tokenUsage.cache_creation_input_tokens;
+      const cacheReadTokens = tokenUsage.cache_read_input_tokens;
+      
+      // Calculate cache usage percentage
+      const cacheUsagePercent = totalInputTokens > 0 
+        ? Math.round((cacheReadTokens / totalInputTokens) * 100) 
+        : 0;
+      
+      tokenUsageDiv.innerHTML = `
+        <div class="mcp-token-usage-header">Token Usage</div>
+        <div class="mcp-token-usage-content">
+          <div class="mcp-token-usage-item">Input: ${totalInputTokens}</div>
+          <div class="mcp-token-usage-item">Output: ${totalOutputTokens}</div>
+          <div class="mcp-token-usage-item">Cache Creation: ${cacheCreationTokens}</div>
+          <div class="mcp-token-usage-item">Cache Read: ${cacheReadTokens}</div>
+          <div class="mcp-token-usage-item">Cache Usage: ${cacheUsagePercent}%</div>
+        </div>
+      `;
+      
+      chatArea.appendChild(tokenUsageDiv);
 
       // Get and display current chat
       const messages = assistant.getCurrentChat();
@@ -731,6 +759,33 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
           // Scroll to bottom as content arrives
           chatArea.scrollTop = chatArea.scrollHeight;
+        }
+        
+        // Update token usage display after message completion
+        const tokenUsageDiv = document.querySelector('.mcp-token-usage');
+        if (tokenUsageDiv && assistant) {
+          const tokenUsage = assistant.getCurrentChatTokenUsage();
+          
+          const totalInputTokens = tokenUsage.input_tokens;
+          const totalOutputTokens = tokenUsage.output_tokens;
+          const cacheCreationTokens = tokenUsage.cache_creation_input_tokens;
+          const cacheReadTokens = tokenUsage.cache_read_input_tokens;
+          
+          // Calculate cache usage percentage
+          const cacheUsagePercent = totalInputTokens > 0 
+            ? Math.round((cacheReadTokens / totalInputTokens) * 100) 
+            : 0;
+          
+          tokenUsageDiv.innerHTML = `
+            <div class="mcp-token-usage-header">Token Usage</div>
+            <div class="mcp-token-usage-content">
+              <div class="mcp-token-usage-item">Input: ${totalInputTokens}</div>
+              <div class="mcp-token-usage-item">Output: ${totalOutputTokens}</div>
+              <div class="mcp-token-usage-item">Cache Creation: ${cacheCreationTokens}</div>
+              <div class="mcp-token-usage-item">Cache Read: ${cacheReadTokens}</div>
+              <div class="mcp-token-usage-item">Cache Usage: ${cacheUsagePercent}%</div>
+            </div>
+          `;
         }
       } catch (error) {
         console.error('Error handling message:', error);
