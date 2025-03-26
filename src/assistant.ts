@@ -430,7 +430,13 @@ export class Assistant {
           }
         }
         const finalMessage = await stream.finalMessage();
-        console.log('Final message:', finalMessage);
+        console.log(
+          'Final message:',
+          finalMessage.usage?.cache_creation_input_tokens,
+          finalMessage.usage?.cache_read_input_tokens,
+          finalMessage.usage?.input_tokens,
+          finalMessage.usage?.output_tokens
+        );
       }
     } catch (error) {
       console.error('Error processing message:', error);
