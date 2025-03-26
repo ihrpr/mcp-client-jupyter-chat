@@ -178,12 +178,12 @@ export class Assistant {
   getCurrentChat(): Anthropic.Messages.MessageParam[] {
     return this.currentChatId ? this.chats.get(this.currentChatId) || [] : [];
   }
-  
+
   /**
    * Get token usage for the current chat
    */
   getCurrentChatTokenUsage(): ITokenUsage {
-    return this.currentChatId 
+    return this.currentChatId
       ? this.chatTokenUsage.get(this.currentChatId) || {
           input_tokens: 0,
           output_tokens: 0,
@@ -472,7 +472,7 @@ export class Assistant {
           finalMessage.usage?.input_tokens,
           finalMessage.usage?.output_tokens
         );
-        
+
         // Update token usage for the current chat
         if (this.currentChatId && finalMessage.usage) {
           const currentUsage = this.chatTokenUsage.get(this.currentChatId) || {
@@ -481,14 +481,22 @@ export class Assistant {
             cache_creation_input_tokens: 0,
             cache_read_input_tokens: 0
           };
-          
+
           this.chatTokenUsage.set(this.currentChatId, {
-            input_tokens: currentUsage.input_tokens + (finalMessage.usage.input_tokens || 0),
-            output_tokens: currentUsage.output_tokens + (finalMessage.usage.output_tokens || 0),
-            cache_creation_input_tokens: currentUsage.cache_creation_input_tokens + (finalMessage.usage.cache_creation_input_tokens || 0),
-            cache_read_input_tokens: currentUsage.cache_read_input_tokens + (finalMessage.usage.cache_read_input_tokens || 0)
+            input_tokens:
+              currentUsage.input_tokens +
+              (finalMessage.usage.input_tokens || 0),
+            output_tokens:
+              currentUsage.output_tokens +
+              (finalMessage.usage.output_tokens || 0),
+            cache_creation_input_tokens:
+              currentUsage.cache_creation_input_tokens +
+              (finalMessage.usage.cache_creation_input_tokens || 0),
+            cache_read_input_tokens:
+              currentUsage.cache_read_input_tokens +
+              (finalMessage.usage.cache_read_input_tokens || 0)
           });
-          
+
           await this.saveHistory();
         }
       }
@@ -613,7 +621,7 @@ export class Assistant {
             };
           })
         );
-        
+
         // Restore token usage for this chat
         if (chat.tokenUsage) {
           this.chatTokenUsage.set(chat.id, chat.tokenUsage);
