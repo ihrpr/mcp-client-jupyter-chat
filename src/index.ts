@@ -180,6 +180,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
       // Clear existing messages
       chatArea.innerHTML = '';
 
+      // Update the token usage in the toolbar
+      updateTokenUsageDisplay();
+
       // Get and display current chat
       const messages = assistant.getCurrentChat();
       messages.forEach(msg => {
@@ -218,6 +221,60 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // Create toolbar
     const toolbar = document.createElement('div');
     toolbar.classList.add('mcp-toolbar');
+
+    // Token Usage Display (sticky)
+    const tokenUsageButton = document.createElement('div');
+    tokenUsageButton.classList.add(
+      'mcp-toolbar-button',
+      'mcp-token-usage-button'
+    );
+    tokenUsageButton.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+      </svg>
+      Token Usage
+    `;
+
+    // Create token usage popup
+    const tokenUsagePopup = document.createElement('div');
+    tokenUsagePopup.classList.add('mcp-token-usage-popup');
+
+    // Update token usage display function
+    const updateTokenUsageDisplay = () => {
+      if (!assistant) {
+        return;
+      }
+
+      const tokenUsage = assistant.getCurrentChatTokenUsage();
+
+      const totalInputTokens = tokenUsage.input_tokens;
+      const totalOutputTokens = tokenUsage.output_tokens;
+      const cacheCreationTokens = tokenUsage.cache_creation_input_tokens;
+      const cacheReadTokens = tokenUsage.cache_read_input_tokens;
+
+      // Calculate cache usage percentage
+      const cacheUsagePercent =
+        totalInputTokens > 0
+          ? Math.round((cacheReadTokens / totalInputTokens) * 100)
+          : 0;
+
+      tokenUsagePopup.innerHTML = `
+        <div class="mcp-token-usage-header">Token Usage</div>
+        <div class="mcp-token-usage-content">
+          <div class="mcp-token-usage-item">Input: ${totalInputTokens}</div>
+          <div class="mcp-token-usage-item">Output: ${totalOutputTokens}</div>
+          <div class="mcp-token-usage-item">Cache Creation: ${cacheCreationTokens}</div>
+          <div class="mcp-token-usage-item">Cache Read: ${cacheReadTokens}</div>
+          <div class="mcp-token-usage-item">Cache Usage: ${cacheUsagePercent}%</div>
+        </div>
+      `;
+    };
+
+    // Add click handler for token usage button
+    tokenUsageButton.addEventListener('click', () => {
+      updateTokenUsageDisplay();
+      tokenUsagePopup.classList.toggle('show');
+    });
 
     // New Chat button
     const newChatButton = document.createElement('button');
@@ -380,10 +437,18 @@ const plugin: JupyterFrontEndPlugin<void> = {
       ) {
         serversPopup.classList.remove('show');
       }
+      if (
+        !tokenUsageButton.contains(event.target as Node) &&
+        !tokenUsagePopup.contains(event.target as Node)
+      ) {
+        tokenUsagePopup.classList.remove('show');
+      }
     });
 
     toolbar.appendChild(newChatButton);
     toolbar.appendChild(historyButton);
+    toolbar.appendChild(tokenUsageButton);
+    toolbar.appendChild(tokenUsagePopup);
     toolbar.appendChild(toolsButton);
     toolbar.appendChild(toolsPopup);
     toolbar.appendChild(plugIcon);
@@ -731,6 +796,19 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
           // Scroll to bottom as content arrives
           chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        // Update token usage in toolbar (even if popup is not visible)
+        updateTokenUsageDisplay();
+
+        // Show token usage popup if it wasn't previously shown
+        if (!tokenUsagePopup.classList.contains('show')) {
+          tokenUsagePopup.classList.add('show');
+
+          // Hide token usage popup after 4 seconds
+          setTimeout(() => {
+            tokenUsagePopup.classList.remove('show');
+          }, 4000);
         }
       } catch (error) {
         console.error('Error handling message:', error);
