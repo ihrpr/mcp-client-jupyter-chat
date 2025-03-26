@@ -2,6 +2,27 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.1.6
+
+([Full Changelog](https://github.com/ihrpr/mcp-client-jupyter-chat/compare/v0.1.5...6f3eb5b31dde1c0e38b0ce522668cb400ab4d730))
+
+### Enhancements made
+
+- Add prompt caching and visibility for tokens used [#13](https://github.com/ihrpr/mcp-client-jupyter-chat/pull/13) ([@ihrpr](https://github.com/ihrpr))
+
+### Documentation improvements
+
+- new demo [#11](https://github.com/ihrpr/mcp-client-jupyter-chat/pull/11) ([@ihrpr](https://github.com/ihrpr))
+- add new demo with mcp servers [#10](https://github.com/ihrpr/mcp-client-jupyter-chat/pull/10) ([@ihrpr](https://github.com/ihrpr))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/ihrpr/mcp-client-jupyter-chat/graphs/contributors?from=2025-02-18&to=2025-03-26&type=c))
+
+[@github-actions](https://github.com/search?q=repo%3Aihrpr%2Fmcp-client-jupyter-chat+involves%3Agithub-actions+updated%3A2025-02-18..2025-03-26&type=Issues) | [@ihrpr](https://github.com/search?q=repo%3Aihrpr%2Fmcp-client-jupyter-chat+involves%3Aihrpr+updated%3A2025-02-18..2025-03-26&type=Issues)
+
+<!-- <END NEW CHANGELOG ENTRY> -->
+
 ## 0.1.5
 
 ([Full Changelog](https://github.com/ihrpr/mcp-client-jupyter-chat/compare/v0.1.4...92a3914d171d8630c728ad77767459a37492286b))
@@ -15,8 +36,6 @@
 ([GitHub contributors page for this release](https://github.com/ihrpr/mcp-client-jupyter-chat/graphs/contributors?from=2025-02-15&to=2025-02-18&type=c))
 
 [@ihrpr](https://github.com/search?q=repo%3Aihrpr%2Fmcp-client-jupyter-chat+involves%3Aihrpr+updated%3A2025-02-15..2025-02-18&type=Issues)
-
-<!-- <END NEW CHANGELOG ENTRY> -->
 
 ## 0.1.4
 
