@@ -350,8 +350,9 @@ After your analysis, provide your assistance in the following format:
 
 1. Task Summary: A very brief restatement of the user's task to ensure understanding.
 2. Approach: Outline the steps or methodology you recommend for tackling the task.
-3. Implementation: use tools to manipulate notebook and add/modify implementation
-4. Additional Considerations: Mention any best practices, potential pitfalls, or optimization tips relevant to the task.
+3. Implementation: use tools to manipulate notebook and add/modify implementation.
+4. Use tools to verify the implementation and fix any issues.
+5. Additional Considerations: Mention any best practices, potential pitfalls, or optimization tips relevant to the task.
 
 Your final output should consist only of the assistance in the format specified above and should not duplicate or rehash any of the work you did in the task breakdown section.`
         });
