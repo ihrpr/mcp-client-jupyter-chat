@@ -284,7 +284,10 @@ export class Assistant {
       while (keepProcessing) {
         let textDelta = '';
         let jsonDelta = '';
+        let thinkingDelta = '';
+        let signatureDelta = '';
         let currentToolName = '';
+        let redactedThinking = '';
         let currentToolID = '';
         keepProcessing = false;
 
@@ -373,9 +376,15 @@ Your final output should consist only of the assistance in the format specified 
             if (event.content_block.type === 'tool_use') {
               currentToolName = event.content_block.name;
               currentToolID = event.content_block.id;
+            } else if (event.content_block.type === 'redacted_thinking') {
+              redactedThinking = event.content_block.data;
             }
           } else if (event.type === 'content_block_delta') {
-            if (event.delta.type === 'text_delta') {
+            if (event.delta.type === 'thinking_delta') {
+              thinkingDelta += event.delta.thinking;
+            } else if (event.delta.type === 'signature_delta') {
+              signatureDelta += event.delta.signature;
+            } else if (event.delta.type === 'text_delta') {
               textDelta += event.delta.text;
               yield {
                 type: 'text',
@@ -389,6 +398,20 @@ Your final output should consist only of the assistance in the format specified 
               keepProcessing = true;
               if (currentToolName !== '') {
                 const content: Anthropic.ContentBlockParam[] = [];
+                if (thinkingDelta != '') {
+                  content.push({
+                    type: 'thinking',
+                    thinking: thinkingDelta,
+                    signature: signatureDelta
+                  } as Anthropic.ThinkingBlockParam);
+                }
+                if (redactedThinking !== '') {
+                  content.push({
+                    type: 'redacted_thinking',
+                    data: redactedThinking
+                  } as Anthropic.RedactedThinkingBlockParam);
+                }
+
                 if (textDelta !== '') {
                   content.push({
                     type: 'text',
@@ -458,7 +481,6 @@ Your final output should consist only of the assistance in the format specified 
                       text: 'Unsupported content type'
                     } as Anthropic.TextBlockParam;
                   });
-
                   const toolResultBlock: Anthropic.ToolResultBlockParam = {
                     type: 'tool_result',
                     tool_use_id: currentToolID,
