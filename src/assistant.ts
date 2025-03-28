@@ -73,6 +73,8 @@ export interface INotebookContext {
 
 export class Assistant {
   SERVER_TOOL_SEPARATOR: string = '__';
+  private readonly TOKEN_BUDGET: number = 200000;
+  private readonly THINKING_TOKEN_BUDGET: number = 200000;
   private chats: Map<string, Anthropic.Messages.MessageParam[]> = new Map();
   private chatTokenUsage: Map<string, ITokenUsage> = new Map();
   private currentChatId: string | null = null;
@@ -188,13 +190,15 @@ export class Assistant {
           input_tokens: 0,
           output_tokens: 0,
           cache_creation_input_tokens: 0,
-          cache_read_input_tokens: 0
+          cache_read_input_tokens: 0,
+          thinking_tokens: 0
         }
       : {
           input_tokens: 0,
           output_tokens: 0,
           cache_creation_input_tokens: 0,
-          cache_read_input_tokens: 0
+          cache_read_input_tokens: 0,
+          thinking_tokens: 0
         };
   }
 
@@ -208,7 +212,8 @@ export class Assistant {
       input_tokens: 0,
       output_tokens: 0,
       cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0
+      cache_read_input_tokens: 0,
+      thinking_tokens: 0
     });
     this.currentChatId = chatId;
     void this.saveHistory();
@@ -318,7 +323,11 @@ export class Assistant {
         // Create streaming request to Claude
         const stream = this.anthropic.messages.stream({
           model: this.modelName,
-          max_tokens: 4096,
+          max_tokens: this.TOKEN_BUDGET,
+          thinking: {
+            type: 'enabled',
+            budget_tokens: this.THINKING_TOKEN_BUDGET
+          },
           messages: clonedMessagesWithCacheControl,
           tools: tools,
           system: `
