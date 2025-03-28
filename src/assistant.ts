@@ -74,7 +74,7 @@ export interface INotebookContext {
 export class Assistant {
   SERVER_TOOL_SEPARATOR: string = '__';
   private readonly TOKEN_BUDGET: number = 200000;
-  private readonly THINKING_TOKEN_BUDGET: number = 200000;
+  private readonly THINKING_TOKEN_BUDGET: number = 160000;
   private chats: Map<string, Anthropic.Messages.MessageParam[]> = new Map();
   private chatTokenUsage: Map<string, ITokenUsage> = new Map();
   private currentChatId: string | null = null;
