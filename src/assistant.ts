@@ -414,7 +414,7 @@ Your final output should consist only of the assistance in the format specified 
               keepProcessing = true;
               if (currentToolName !== '') {
                 const content: Anthropic.ContentBlockParam[] = [];
-                if (thinkingDelta != '') {
+                if (thinkingDelta !== '') {
                   content.push({
                     type: 'thinking',
                     thinking: thinkingDelta,
