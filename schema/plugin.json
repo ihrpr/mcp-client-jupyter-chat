@@ -54,9 +54,14 @@
       },
       "default": [
         {
-          "name": "claude-3-5-sonnet-20241022",
+          "name": "claude-3-7-sonnet-20250219",
           "apiKey": "please-set-your-api-key",
           "isDefault": true
+        },
+        {
+          "name": "claude-3-5-sonnet-20241022",
+          "apiKey": "please-set-your-api-key",
+          "isDefault": false
         },
         {
           "name": "other-model-to-use",

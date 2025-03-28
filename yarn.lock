@@ -15,9 +15,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@anthropic-ai/sdk@npm:^0.36.3":
-  version: 0.36.3
-  resolution: "@anthropic-ai/sdk@npm:0.36.3"
+"@anthropic-ai/sdk@npm:^0.39.0":
+  version: 0.39.0
+  resolution: "@anthropic-ai/sdk@npm:0.39.0"
   dependencies:
     "@types/node": ^18.11.18
     "@types/node-fetch": ^2.6.4
@@ -26,7 +26,7 @@ __metadata:
     form-data-encoder: 1.7.2
     formdata-node: ^4.3.2
     node-fetch: ^2.6.7
-  checksum: 783a051fea42bb8cc52f92b1aaf1d5d1fb9412f8cc54c0cc3b4f6b5c3b97056bcdebc7c17d0b7efca67a8cf92642e2c9c50d49af80d2bd33b4cf286edf51664c
+  checksum: 47f00c9d3ca2d497b25c688cdfd923474e2f16e774f67a3e2ef3f0c24cd80412687e3a2caee3024dd9a5d7a95e0717d85e3ffc9c4ba75ff6f1641d5820394a76
   languageName: node
   linkType: hard
 
@@ -7129,7 +7129,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "mcp-client-jupyter-chat@workspace:."
   dependencies:
-    "@anthropic-ai/sdk": ^0.36.3
+    "@anthropic-ai/sdk": ^0.39.0
     "@jupyterlab/application": ^4.0.0
     "@jupyterlab/builder": ^4.0.0
     "@jupyterlab/rendermime": ^4.3.5

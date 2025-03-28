@@ -292,3 +292,34 @@
 .mcp-token-usage-button {
   position: relative;
 }
+
+/* Thinking Block Styles for index.css */
+.mcp-thinking-block {
+  background: #f9f9f9;
+  border: 1px solid #e6e2dd;
+  margin: 8px 0;
+}
+
+.mcp-thinking-header {
+  background: #f7f7f7;
+  color: #555;
+  border-bottom: 1px solid #e6e2dd;
+}
+
+.mcp-thinking-toggle {
+  color: #666;
+}
+
+.mcp-thinking-toggle:hover {
+  background: #eee;
+}
+
+.mcp-thinking-content {
+  background: #fff;
+  color: #444;
+}
+
+.mcp-thinking-title {
+  font-weight: 500;
+  padding-right: 8px;
+}

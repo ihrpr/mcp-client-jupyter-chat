@@ -57,7 +57,7 @@
         "watch:labextension": "jupyter labextension watch ."
     },
     "dependencies": {
-        "@anthropic-ai/sdk": "^0.36.3",
+        "@anthropic-ai/sdk": "^0.39.0",
         "@jupyterlab/application": "^4.0.0",
         "@jupyterlab/rendermime": "^4.3.5",
         "@jupyterlab/services": "^7.3.4",

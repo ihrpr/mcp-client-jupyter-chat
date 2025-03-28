@@ -58,12 +58,14 @@ type JSONValue =
 type StateDBValue = { [key: string]: JSONValue };
 
 export interface IStreamEvent {
-  type: 'text' | 'tool_use' | 'tool_result';
+  type: 'text' | 'tool_use' | 'tool_result' | 'thinking_delta';
   text?: string;
   name?: string;
   input?: Record<string, unknown>;
   content?: string;
   is_error?: boolean;
+  thinking?: string;
+  thinking_complete?: boolean;
 }
 
 export interface INotebookContext {
@@ -73,6 +75,8 @@ export interface INotebookContext {
 
 export class Assistant {
   SERVER_TOOL_SEPARATOR: string = '__';
+  private readonly TOKEN_BUDGET: number = 20000;
+  private readonly THINKING_TOKEN_BUDGET: number = 16000;
   private chats: Map<string, Anthropic.Messages.MessageParam[]> = new Map();
   private chatTokenUsage: Map<string, ITokenUsage> = new Map();
   private currentChatId: string | null = null;
@@ -188,13 +192,15 @@ export class Assistant {
           input_tokens: 0,
           output_tokens: 0,
           cache_creation_input_tokens: 0,
-          cache_read_input_tokens: 0
+          cache_read_input_tokens: 0,
+          thinking_tokens: 0
         }
       : {
           input_tokens: 0,
           output_tokens: 0,
           cache_creation_input_tokens: 0,
-          cache_read_input_tokens: 0
+          cache_read_input_tokens: 0,
+          thinking_tokens: 0
         };
   }
 
@@ -208,7 +214,8 @@ export class Assistant {
       input_tokens: 0,
       output_tokens: 0,
       cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0
+      cache_read_input_tokens: 0,
+      thinking_tokens: 0
     });
     this.currentChatId = chatId;
     void this.saveHistory();
@@ -279,7 +286,10 @@ export class Assistant {
       while (keepProcessing) {
         let textDelta = '';
         let jsonDelta = '';
+        let thinkingDelta = '';
+        let signatureDelta = '';
         let currentToolName = '';
+        let redactedThinking = '';
         let currentToolID = '';
         keepProcessing = false;
 
@@ -316,9 +326,14 @@ export class Assistant {
         }
 
         // Create streaming request to Claude
-        const stream = this.anthropic.messages.stream({
+        const stream = this.anthropic.beta.messages.stream({
           model: this.modelName,
-          max_tokens: 4096,
+          max_tokens: this.TOKEN_BUDGET,
+          thinking: {
+            type: 'enabled',
+            budget_tokens: this.THINKING_TOKEN_BUDGET
+          },
+          betas: ['output-128k-2025-02-19'],
           messages: clonedMessagesWithCacheControl,
           tools: tools,
           system: `
@@ -363,10 +378,30 @@ Your final output should consist only of the assistance in the format specified 
             if (event.content_block.type === 'tool_use') {
               currentToolName = event.content_block.name;
               currentToolID = event.content_block.id;
+            } else if (event.content_block.type === 'redacted_thinking') {
+              redactedThinking = event.content_block.data;
             }
           } else if (event.type === 'content_block_delta') {
-            if (event.delta.type === 'text_delta') {
+            if (event.delta.type === 'thinking_delta') {
+              thinkingDelta += event.delta.thinking;
+              // Yield thinking_delta event for UI to display
+              yield {
+                type: 'thinking_delta',
+                thinking: event.delta.thinking,
+                thinking_complete: false
+              };
+            } else if (event.delta.type === 'signature_delta') {
+              signatureDelta += event.delta.signature;
+            } else if (event.delta.type === 'text_delta') {
               textDelta += event.delta.text;
+              // If we had thinking and now getting text, mark thinking as complete
+              if (thinkingDelta !== '') {
+                yield {
+                  type: 'thinking_delta',
+                  thinking: '',
+                  thinking_complete: true
+                };
+              }
               yield {
                 type: 'text',
                 text: event.delta.text
@@ -379,6 +414,20 @@ Your final output should consist only of the assistance in the format specified 
               keepProcessing = true;
               if (currentToolName !== '') {
                 const content: Anthropic.ContentBlockParam[] = [];
+                if (thinkingDelta !== '') {
+                  content.push({
+                    type: 'thinking',
+                    thinking: thinkingDelta,
+                    signature: signatureDelta
+                  } as Anthropic.ThinkingBlockParam);
+                }
+                if (redactedThinking !== '') {
+                  content.push({
+                    type: 'redacted_thinking',
+                    data: redactedThinking
+                  } as Anthropic.RedactedThinkingBlockParam);
+                }
+
                 if (textDelta !== '') {
                   content.push({
                     type: 'text',
@@ -448,7 +497,6 @@ Your final output should consist only of the assistance in the format specified 
                       text: 'Unsupported content type'
                     } as Anthropic.TextBlockParam;
                   });
-
                   const toolResultBlock: Anthropic.ToolResultBlockParam = {
                     type: 'tool_result',
                     tool_use_id: currentToolID,
@@ -478,6 +526,9 @@ Your final output should consist only of the assistance in the format specified 
                   currentToolID = '';
                   jsonDelta = '';
                   textDelta = '';
+                  thinkingDelta = '';
+                  signatureDelta = '';
+                  redactedThinking = '';
                 }
               }
             } else {
