@@ -321,13 +321,14 @@ export class Assistant {
         }
 
         // Create streaming request to Claude
-        const stream = this.anthropic.messages.stream({
+        const stream = this.anthropic.beta.messages.stream({
           model: this.modelName,
           max_tokens: this.TOKEN_BUDGET,
           thinking: {
             type: 'enabled',
             budget_tokens: this.THINKING_TOKEN_BUDGET
           },
+          betas: ['output-128k-2025-02-19'],
           messages: clonedMessagesWithCacheControl,
           tools: tools,
           system: `
