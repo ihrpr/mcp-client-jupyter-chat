@@ -526,6 +526,9 @@ Your final output should consist only of the assistance in the format specified 
                   currentToolID = '';
                   jsonDelta = '';
                   textDelta = '';
+                  thinkingDelta = '';
+                  signatureDelta = '';
+                  redactedThinking = '';
                 }
               }
             } else {
