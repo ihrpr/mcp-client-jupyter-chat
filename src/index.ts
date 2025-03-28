@@ -207,6 +207,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 type: 'tool_result',
                 content: JSON.stringify(block.content)
               } as IStreamEvent;
+            } else if (block.type === 'thinking') {
+              return {
+                type: 'thinking_delta',
+                thinking: block.thinking as string,
+                thinking_complete: true
+              } as IStreamEvent;
             }
             return {
               type: 'text',
@@ -613,6 +619,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
         });
         messageDiv.appendChild(widget.node);
       } else {
+        // Track if a thinking block already exists in this message
+        let thinkingBlock: HTMLDivElement | null = null;
+        let thinkingContent = '';
+
         // Handle content blocks
         content.forEach(block => {
           const blockDiv = document.createElement('div');
@@ -630,11 +640,71 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 }
               });
               blockDiv.appendChild(widget.node);
+              messageDiv.appendChild(blockDiv);
+              break;
+            }
+            case 'thinking_delta': {
+              // If thinking block doesn't exist yet, create it
+              if (!thinkingBlock) {
+                thinkingBlock = document.createElement('div');
+                thinkingBlock.classList.add('mcp-thinking-block');
+
+                // Create header with expand/collapse button
+                const header = document.createElement('div');
+                header.classList.add('mcp-thinking-header');
+
+                // Create header text in a span so we can add click handler
+                const headerText = document.createElement('span');
+                headerText.classList.add('mcp-thinking-title');
+                headerText.textContent = block.thinking_complete
+                  ? 'Thoughts'
+                  : 'Thinking...';
+
+                // Allow clicking the header text to expand/collapse
+                headerText.style.cursor = 'pointer';
+                headerText.onclick = () => {
+                  const isExpanded =
+                    thinkingBlock!.classList.toggle('expanded');
+                  toggleButton.textContent = isExpanded ? 'Collapse' : 'Expand';
+                };
+
+                header.appendChild(headerText);
+
+                const toggleButton = document.createElement('button');
+                toggleButton.classList.add('mcp-thinking-toggle');
+                toggleButton.textContent = 'Expand';
+                toggleButton.onclick = () => {
+                  const isExpanded =
+                    thinkingBlock!.classList.toggle('expanded');
+                  toggleButton.textContent = isExpanded ? 'Collapse' : 'Expand';
+                };
+
+                header.appendChild(toggleButton);
+                thinkingBlock.appendChild(header);
+
+                // Create content container with preserved formatting
+                const content = document.createElement('pre');
+                content.classList.add('mcp-thinking-content');
+                thinkingBlock.appendChild(content);
+
+                // Add to message div
+                messageDiv.appendChild(thinkingBlock);
+              }
+
+              // Update thinking content
+              thinkingContent += block.thinking || '';
+              const contentEl = thinkingBlock.querySelector(
+                '.mcp-thinking-content'
+              ) as HTMLPreElement;
+              if (contentEl) {
+                contentEl.textContent = thinkingContent;
+              }
               break;
             }
             case 'tool_use': {
               blockDiv.textContent = `[Using tool: ${block.name}]`;
               blockDiv.classList.add('tool-use');
+              messageDiv.appendChild(blockDiv);
               break;
             }
             case 'tool_result': {
@@ -665,11 +735,14 @@ const plugin: JupyterFrontEndPlugin<void> = {
                   ? block.content
                   : JSON.stringify(block.content, null, 2);
               blockDiv.appendChild(content);
+              messageDiv.appendChild(blockDiv);
               break;
             }
+            default: {
+              blockDiv.textContent = 'Unsupported content type';
+              messageDiv.appendChild(blockDiv);
+            }
           }
-
-          messageDiv.appendChild(blockDiv);
         });
       }
 
@@ -708,6 +781,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
         const activeCellID =
           notebookTracker.currentWidget?.content.activeCell?.model.id;
         // Process streaming response
+        // Create a variable to store thinking delta content
+        let thinkingBlock: HTMLDivElement | null = null;
+        let thinkingContent = '';
+
         for await (const block of assistant.sendMessage(message, {
           notebookPath,
           activeCellID
@@ -740,6 +817,59 @@ const plugin: JupyterFrontEndPlugin<void> = {
               });
               currentTextBlock.innerHTML = '';
               currentTextBlock.appendChild(widget.node);
+              break;
+            }
+
+            case 'thinking_delta': {
+              // If thinking block doesn't exist yet, create it
+              if (!thinkingBlock) {
+                thinkingBlock = document.createElement('div');
+                thinkingBlock.classList.add('mcp-thinking-block');
+
+                // Create header with expand/collapse button
+                const header = document.createElement('div');
+                header.classList.add('mcp-thinking-header');
+                header.textContent = 'Thinking...';
+
+                const toggleButton = document.createElement('button');
+                toggleButton.classList.add('mcp-thinking-toggle');
+                toggleButton.textContent = 'Expand';
+                toggleButton.onclick = () => {
+                  const isExpanded =
+                    thinkingBlock!.classList.toggle('expanded');
+                  toggleButton.textContent = isExpanded ? 'Collapse' : 'Expand';
+                };
+
+                header.appendChild(toggleButton);
+                thinkingBlock.appendChild(header);
+
+                // Create content container with preserved formatting
+                const content = document.createElement('pre');
+                content.classList.add('mcp-thinking-content');
+                thinkingBlock.appendChild(content);
+
+                // Add to message div
+                messageDiv.appendChild(thinkingBlock);
+              }
+
+              // Update thinking content
+              thinkingContent += block.thinking || '';
+              const contentEl = thinkingBlock.querySelector(
+                '.mcp-thinking-content'
+              ) as HTMLPreElement;
+              if (contentEl) {
+                contentEl.textContent = thinkingContent;
+              }
+
+              // Update header label if thinking is complete
+              if (block.thinking_complete) {
+                const headerTitle = thinkingBlock.querySelector(
+                  '.mcp-thinking-title'
+                ) as HTMLSpanElement;
+                if (headerTitle) {
+                  headerTitle.textContent = 'Thoughts';
+                }
+              }
               break;
             }
 

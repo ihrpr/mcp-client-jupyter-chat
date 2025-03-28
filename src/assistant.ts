@@ -58,12 +58,14 @@ type JSONValue =
 type StateDBValue = { [key: string]: JSONValue };
 
 export interface IStreamEvent {
-  type: 'text' | 'tool_use' | 'tool_result';
+  type: 'text' | 'tool_use' | 'tool_result' | 'thinking_delta';
   text?: string;
   name?: string;
   input?: Record<string, unknown>;
   content?: string;
   is_error?: boolean;
+  thinking?: string;
+  thinking_complete?: boolean;
 }
 
 export interface INotebookContext {
@@ -382,10 +384,24 @@ Your final output should consist only of the assistance in the format specified 
           } else if (event.type === 'content_block_delta') {
             if (event.delta.type === 'thinking_delta') {
               thinkingDelta += event.delta.thinking;
+              // Yield thinking_delta event for UI to display
+              yield {
+                type: 'thinking_delta',
+                thinking: event.delta.thinking,
+                thinking_complete: false
+              };
             } else if (event.delta.type === 'signature_delta') {
               signatureDelta += event.delta.signature;
             } else if (event.delta.type === 'text_delta') {
               textDelta += event.delta.text;
+              // If we had thinking and now getting text, mark thinking as complete
+              if (thinkingDelta !== '') {
+                yield {
+                  type: 'thinking_delta',
+                  thinking: '',
+                  thinking_complete: true
+                };
+              }
               yield {
                 type: 'text',
                 text: event.delta.text
