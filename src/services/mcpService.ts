@@ -73,9 +73,20 @@ export class McpService {
       );
 
       // Connect to default server
-      const defaultUrl = new URL('http://localhost:3002/sse');
-      const defaultTransport = new SSEClientTransport(defaultUrl);
-      await newDefaultClient.connect(defaultTransport);
+      try {
+        const defaultUrl = new URL('http://localhost:3002/sse');
+        const defaultTransport = new SSEClientTransport(defaultUrl);
+
+        // Add error handling for transport
+        defaultTransport.onerror = error => {
+          console.warn('MCP transport error:', error);
+        };
+
+        await newDefaultClient.connect(defaultTransport);
+      } catch (error) {
+        console.warn('Failed to connect to default MCP server:', error);
+        // Continue without failing - this allows JupyterLab to start even if MCP server is not available
+      }
       this.mcpClients.set('default', newDefaultClient);
       console.log('Successfully connected to default MCP server');
 
@@ -123,8 +134,14 @@ export class McpService {
       }
     );
 
-    const transport = new SSEClientTransport(new URL(server.url));
     try {
+      const transport = new SSEClientTransport(new URL(server.url));
+
+      // Add error handling for transport
+      transport.onerror = error => {
+        console.warn(`MCP transport error for ${server.name}:`, error);
+      };
+
       await client.connect(transport);
       this.mcpClients.set(server.name, client);
       console.log(`Successfully connected to MCP server: ${server.name}`);
@@ -159,8 +176,10 @@ export class McpService {
         }
       }
 
+      // Don't throw an error if no tools are available - this allows JupyterLab to start
+      // even if MCP servers don't have tools or aren't available
       if (this.tools.size === 0) {
-        throw new Error('No tools available from any MCP server');
+        console.warn('No tools available from any MCP server');
       }
     } catch (error) {
       console.error('Failed to initialize tools:', error);
