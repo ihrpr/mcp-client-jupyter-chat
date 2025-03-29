@@ -226,7 +226,6 @@
   gap: 8px;
 }
 
-
 .mcp-chat-item {
   padding: 12px;
   border-radius: 8px;
@@ -334,7 +333,8 @@
   font-size: 12px;
   line-height: 1.5;
   color: var(--jp-ui-font-color2);
-  font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, Courier,
+    monospace;
 }
 
 .streaming-input {
@@ -346,6 +346,7 @@
   from {
     border-left-color: var(--jp-brand-color1);
   }
+
   to {
     border-left-color: var(--jp-brand-color2);
   }
