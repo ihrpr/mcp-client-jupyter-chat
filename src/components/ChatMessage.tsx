@@ -22,11 +22,11 @@ export const ChatMessage = ({
   const contentArray = Array.isArray(content)
     ? content
     : [
-      {
-        type: 'text',
-        text: typeof content === 'string' ? content : JSON.stringify(content)
-      }
-    ];
+        {
+          type: 'text',
+          text: typeof content === 'string' ? content : JSON.stringify(content)
+        }
+      ];
 
   // Safely render each block
   const renderBlocks = () => {
