@@ -253,7 +253,9 @@ export const ChatWidget = ({
       console.error('Error handling message:', error);
       blocks.push({
         type: 'text',
-        text: 'An error occurred while processing your message.'
+        text:
+          'An error occurred while processing your message: ' +
+          (error instanceof Error ? error.message : String(error))
       });
       setStreamingBlocks([...blocks]);
     }
