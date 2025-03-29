@@ -109,7 +109,7 @@ export const StreamingResponse = ({
   }
 
   return (
-    <div className="mcp-streaming-response" ref={messageRef}>
+    <div className="mcp-message assistant" ref={messageRef}>
       {renderableContent}
     </div>
   );

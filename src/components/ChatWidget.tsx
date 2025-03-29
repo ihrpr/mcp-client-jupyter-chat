@@ -107,7 +107,7 @@ export const ChatWidget = ({
   };
 
   // Display current chat messages
-  const displayCurrentChat = () => {
+  const displayCurrentChat = (excludeLastAssistantMessage = false) => {
     if (!assistant) {
       return <div className="mcp-no-messages">No messages yet</div>;
     }
@@ -117,8 +117,26 @@ export const ChatWidget = ({
 
     // Process messages and group related sequences into visual messages
     let i = 0;
+    let lastAssistantIndex = -1;
+
+    // Find the index of the last assistant message if we need to exclude it
+    if (excludeLastAssistantMessage) {
+      for (let j = messages.length - 1; j >= 0; j--) {
+        if (messages[j].role === 'assistant') {
+          lastAssistantIndex = j;
+          break;
+        }
+      }
+    }
+
     while (i < messages.length) {
       const msg = messages[i];
+
+      // Skip the last assistant message if we're streaming (to avoid duplicates)
+      if (excludeLastAssistantMessage && i === lastAssistantIndex) {
+        i++;
+        continue;
+      }
 
       // Handle regular user messages (not tool results)
       if (
@@ -259,7 +277,8 @@ export const ChatWidget = ({
       ) : (
         // Show normal chat area
         <div className="mcp-chat-area" ref={chatAreaRef}>
-          {displayCurrentChat()}
+          {/* Show chat history, excluding the last assistant message when streaming */}
+          {displayCurrentChat(streamingBlocks.length > 0)}
 
           {/* Display streaming response if there is any */}
           {streamingBlocks.length > 0 && (
