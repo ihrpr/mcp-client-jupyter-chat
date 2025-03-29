@@ -57,12 +57,61 @@ export const StreamingResponse = ({
         name: block.name,
         input: block.input
       };
+    } else if (block.type === 'input_json_delta' && block.partial_json) {
+      // Handle streaming JSON for tool input
+      const toolKey = Object.keys(processedBlocks).find(
+        key =>
+          key.startsWith('tool_use_') && !processedBlocks[key].inputComplete
+      );
+
+      if (toolKey) {
+        // Initialize streaming input if needed
+        if (!processedBlocks[toolKey].streamingInput) {
+          processedBlocks[toolKey].streamingInput = '';
+        }
+
+        // Append the new JSON fragment
+        processedBlocks[toolKey].streamingInput += block.partial_json;
+        processedBlocks[toolKey].isStreaming = true;
+
+        // Try to parse the JSON as it streams in
+        try {
+          const parsed = JSON.parse(processedBlocks[toolKey].streamingInput);
+          processedBlocks[toolKey].parsedInput = parsed;
+        } catch (e) {
+          // Ignore parsing errors during streaming
+        }
+      } else {
+        // If we received input_json_delta but don't have a tool_use yet,
+        // create a placeholder for any tool that hasn't been created yet
+        const placeholderKey = 'tool_use_placeholder';
+        if (!processedBlocks[placeholderKey]) {
+          processedBlocks[placeholderKey] = {
+            name: 'Tool',
+            streamingInput: block.partial_json,
+            isStreaming: true
+          };
+        } else {
+          processedBlocks[placeholderKey].streamingInput += block.partial_json;
+        }
+      }
     } else if (block.type === 'tool_result') {
       processedBlocks[`tool_result_${block.name}`] = {
         name: block.name,
         content: block.content,
         isError: block.is_error
       };
+
+      // Mark any related tool use as complete
+      const toolKey = Object.keys(processedBlocks).find(
+        key =>
+          key.startsWith('tool_use_') &&
+          key.includes(block.name ?? '') &&
+          !processedBlocks[key].inputComplete
+      );
+      if (toolKey) {
+        processedBlocks[toolKey].inputComplete = true;
+      }
     }
   });
 
@@ -82,11 +131,39 @@ export const StreamingResponse = ({
 
   // Then tool uses and results
   const toolElements: JSX.Element[] = [];
+
+  // Check for placeholder first (for immediate streamed input)
+  if (processedBlocks['tool_use_placeholder']) {
+    const placeholder = processedBlocks['tool_use_placeholder'];
+    toolElements.push(
+      <div key="tool_use_placeholder" className="tool-use">
+        <div className="tool-use-header">Using tool: {placeholder.name}</div>
+        <pre className="tool-use-input streaming-input">
+          {placeholder.streamingInput}
+        </pre>
+      </div>
+    );
+  }
+
+  // Process all other blocks
   Object.entries(processedBlocks).forEach(([key, value]) => {
-    if (key.startsWith('tool_use_')) {
+    if (key.startsWith('tool_use_') && key !== 'tool_use_placeholder') {
+      // Display tool use with streaming input if available
+      const toolInput = value.parsedInput || value.input || {};
+      const isStreaming = value.streamingInput && !value.inputComplete;
+
       toolElements.push(
         <div key={key} className="tool-use">
-          [Using tool: {value.name}]
+          <div className="tool-use-header">Using tool: {value.name}</div>
+          {isStreaming || Object.keys(toolInput).length > 0 ? (
+            <pre
+              className={`tool-use-input ${isStreaming ? 'streaming-input' : ''}`}
+            >
+              {isStreaming
+                ? value.streamingInput
+                : JSON.stringify(toolInput, null, 2)}
+            </pre>
+          ) : null}
         </div>
       );
     } else if (key.startsWith('tool_result_')) {

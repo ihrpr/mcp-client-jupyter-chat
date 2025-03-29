@@ -84,7 +84,12 @@ export interface ISerializedHistory {
 
 // Stream events for UI updates
 export interface IStreamEvent {
-  type: 'text' | 'tool_use' | 'tool_result' | 'thinking_delta';
+  type:
+    | 'text'
+    | 'tool_use'
+    | 'tool_result'
+    | 'thinking_delta'
+    | 'input_json_delta';
   text?: string;
   name?: string;
   input?: Record<string, unknown>;
@@ -92,6 +97,7 @@ export interface IStreamEvent {
   is_error?: boolean;
   thinking?: string;
   thinking_complete?: boolean;
+  partial_json?: string;
 }
 
 // JSON type definitions

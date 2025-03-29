@@ -270,6 +270,13 @@ Your final output should consist only of the assistance in the format specified 
             if (event.content_block.type === 'tool_use') {
               currentToolName = event.content_block.name;
               currentToolID = event.content_block.id;
+
+              // Immediately emit tool_use event to show in UI
+              yield {
+                type: 'tool_use',
+                name: currentToolName,
+                input: {} // Empty input initially, will be filled with streaming data
+              };
             } else if (event.content_block.type === 'redacted_thinking') {
               redactedThinking = event.content_block.data;
             }
@@ -300,6 +307,13 @@ Your final output should consist only of the assistance in the format specified 
               };
             } else if (event.delta.type === 'input_json_delta') {
               jsonDelta += event.delta.partial_json;
+
+              // Stream ONLY the new fragment to be more efficient
+              yield {
+                type: 'input_json_delta',
+                name: currentToolName,
+                partial_json: event.delta.partial_json
+              };
             }
           } else if (event.type === 'message_delta') {
             if (event.delta.stop_reason === 'tool_use') {
