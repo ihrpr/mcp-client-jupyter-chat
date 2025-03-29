@@ -9,7 +9,7 @@ import {
 
 export interface IChatMessageProps {
   role: 'user' | 'assistant';
-  content: any[];
+  content: any[] | string;
   rendermime: IRenderMimeRegistry;
 }
 
@@ -21,11 +21,25 @@ export const ChatMessage = ({
   // Handle case where content might not be an array
   const contentArray = Array.isArray(content)
     ? content
-    : [{ type: 'text', text: content }];
+    : [
+      {
+        type: 'text',
+        text: typeof content === 'string' ? content : JSON.stringify(content)
+      }
+    ];
 
-  return (
-    <div className={`mcp-message ${role}`}>
-      {contentArray.map((block, index) => {
+  // Safely render each block
+  const renderBlocks = () => {
+    if (!Array.isArray(contentArray)) {
+      return <div className="mcp-error">Error: Invalid content format</div>;
+    }
+
+    return contentArray.map((block, index) => {
+      if (!block) {
+        return null;
+      }
+
+      try {
         if (block.type === 'text' && block.text) {
           return (
             <MarkdownContent
@@ -38,7 +52,7 @@ export const ChatMessage = ({
           return (
             <ThinkingBlock
               key={index}
-              content={block.thinking || block.content}
+              content={block.thinking || block.content || ''}
               complete={true}
             />
           );
@@ -46,23 +60,32 @@ export const ChatMessage = ({
           return (
             <ToolUse
               key={index}
-              name={block.name}
+              name={block.name || 'Unknown Tool'}
               input={block.input}
               streamingInput={block.streamingInput}
-              isStreaming={block.isStreaming}
+              isStreaming={!!block.isStreaming}
             />
           );
         } else if (block.type === 'tool_result') {
           return (
             <ToolResult
               key={index}
-              content={block.content}
-              isError={block.is_error}
+              content={block.content || ''}
+              isError={!!block.is_error}
             />
           );
         }
-        return null;
-      })}
-    </div>
-  );
+      } catch (error) {
+        console.error('Error rendering message block:', error, block);
+        return (
+          <div key={index} className="mcp-error">
+            Error rendering content
+          </div>
+        );
+      }
+      return null;
+    });
+  };
+
+  return <div className={`mcp-message ${role}`}>{renderBlocks()}</div>;
 };
