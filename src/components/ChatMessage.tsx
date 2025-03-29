@@ -5,7 +5,7 @@ interface IThinkingBlockProps {
   content: string;
 }
 
-const ThinkingBlock: React.FC<IThinkingBlockProps> = ({ content }) => {
+const ThinkingBlock = ({ content }: IThinkingBlockProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const toggleExpand = () => {
@@ -36,10 +36,7 @@ interface IToolResultProps {
   isError?: boolean;
 }
 
-const ToolResult: React.FC<IToolResultProps> = ({
-  content,
-  isError = false
-}) => {
+const ToolResult = ({ content, isError = false }: IToolResultProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const toggleExpand = () => {
@@ -70,10 +67,7 @@ interface IMarkdownContentProps {
   rendermime: IRenderMimeRegistry;
 }
 
-const MarkdownContent: React.FC<IMarkdownContentProps> = ({
-  content,
-  rendermime
-}) => {
+const MarkdownContent = ({ content, rendermime }: IMarkdownContentProps) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -102,11 +96,11 @@ export interface IChatMessageProps {
   rendermime: IRenderMimeRegistry;
 }
 
-export const ChatMessage: React.FC<IChatMessageProps> = ({
+export const ChatMessage = ({
   role,
   content,
   rendermime
-}) => {
+}: IChatMessageProps) => {
   return (
     <div className={`mcp-message ${role}`}>
       {content.map((block, index) => {

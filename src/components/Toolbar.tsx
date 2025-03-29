@@ -11,12 +11,12 @@ interface IToolbarProps {
   onShowHistory: () => void;
 }
 
-export const Toolbar: React.FC<IToolbarProps> = ({
+export const Toolbar = ({
   assistant,
   mcpService,
   onNewChat,
   onShowHistory
-}) => {
+}: IToolbarProps) => {
   const [showToolsPopup, setShowToolsPopup] = React.useState(false);
   const [showServersPopup, setShowServersPopup] = React.useState(false);
 
@@ -132,7 +132,7 @@ interface IToolsListProps {
   assistant: AssistantService | null;
 }
 
-const ToolsList: React.FC<IToolsListProps> = ({ mcpService, assistant }) => {
+const ToolsList = ({ mcpService, assistant }: IToolsListProps) => {
   if (!assistant) {
     return (
       <ul className="mcp-tools-list">
@@ -181,7 +181,7 @@ interface IServersListProps {
   mcpService: McpService;
 }
 
-const ServersList: React.FC<IServersListProps> = ({ mcpService }) => {
+const ServersList = ({ mcpService }: IServersListProps) => {
   const mcpClients = mcpService.getClients();
 
   if (mcpClients.size === 0) {

@@ -6,7 +6,7 @@ interface ITokenUsageProps {
   tokenUsage: ITokenUsage;
 }
 
-export const TokenUsage: React.FC<ITokenUsageProps> = ({ tokenUsage }) => {
+export const TokenUsage = ({ tokenUsage }: ITokenUsageProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLDivElement>(null);

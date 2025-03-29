@@ -12,14 +12,14 @@ interface IInputAreaProps {
   notebookContext: INotebookContext;
 }
 
-export const InputArea: React.FC<IInputAreaProps> = ({
+export const InputArea = ({
   assistant,
   availableModels,
   selectedModel,
   onSelectModel,
   onSendMessage,
   notebookContext
-}) => {
+}: IInputAreaProps) => {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectRef = useRef<HTMLSelectElement>(null);

@@ -25,7 +25,7 @@ interface IChatWidgetProps {
   onSelectModel: (model: IModelConfig | null) => void;
 }
 
-export const ChatWidget: React.FC<IChatWidgetProps> = ({
+export const ChatWidget = ({
   rendermime,
   notebookTracker,
   stateDB,
@@ -33,7 +33,7 @@ export const ChatWidget: React.FC<IChatWidgetProps> = ({
   availableModels,
   selectedModel,
   onSelectModel
-}) => {
+}: IChatWidgetProps) => {
   const [assistant, setAssistant] = useState<AssistantService | null>(null);
   const [mcpService, setMcpService] = useState<McpService>(new McpService());
   const [isConnecting, setIsConnecting] = useState(false);

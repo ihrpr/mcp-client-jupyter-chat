@@ -9,10 +9,7 @@ interface IChatAreaProps {
   rendermime: IRenderMimeRegistry;
 }
 
-export const ChatArea: React.FC<IChatAreaProps> = ({
-  assistant,
-  rendermime
-}) => {
+export const ChatArea = ({ assistant, rendermime }: IChatAreaProps) => {
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when new messages are added
@@ -134,10 +131,10 @@ export interface IStreamingResponseProps {
   rendermime: IRenderMimeRegistry;
 }
 
-export const StreamingResponse: React.FC<IStreamingResponseProps> = ({
+export const StreamingResponse = ({
   blocks,
   rendermime
-}) => {
+}: IStreamingResponseProps) => {
   const messageRef = useRef<HTMLDivElement>(null);
 
   // Group related blocks together for rendering
@@ -221,10 +218,7 @@ interface IMarkdownContentProps {
   rendermime: IRenderMimeRegistry;
 }
 
-const MarkdownContent: React.FC<IMarkdownContentProps> = ({
-  content,
-  rendermime
-}) => {
+const MarkdownContent = ({ content, rendermime }: IMarkdownContentProps) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -252,10 +246,7 @@ interface IThinkingBlockProps {
   complete?: boolean;
 }
 
-const ThinkingBlock: React.FC<IThinkingBlockProps> = ({
-  content,
-  complete = false
-}) => {
+const ThinkingBlock = ({ content, complete = false }: IThinkingBlockProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const toggleExpand = () => {
@@ -286,10 +277,7 @@ interface IToolResultProps {
   isError?: boolean;
 }
 
-const ToolResult: React.FC<IToolResultProps> = ({
-  content,
-  isError = false
-}) => {
+const ToolResult = ({ content, isError = false }: IToolResultProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const toggleExpand = () => {

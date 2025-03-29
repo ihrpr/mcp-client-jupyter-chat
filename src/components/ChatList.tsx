@@ -6,10 +6,7 @@ interface IChatListProps {
   onSelectChat: (chatId: string) => void;
 }
 
-export const ChatList: React.FC<IChatListProps> = ({
-  assistant,
-  onSelectChat
-}) => {
+export const ChatList = ({ assistant, onSelectChat }: IChatListProps) => {
   if (!assistant) {
     return <div className="mcp-no-chats">No chats available</div>;
   }
