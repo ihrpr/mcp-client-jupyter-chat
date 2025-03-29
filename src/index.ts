@@ -14,7 +14,6 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { Assistant } from './assistant';
-import { IStreamEvent } from './assistant';
 
 /**
  * Initialization data for the mcp-client-jupyter-chat extension.
@@ -185,43 +184,180 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
       // Get and display current chat
       const messages = assistant.getCurrentChat();
-      messages.forEach(msg => {
-        if (typeof msg.content === 'string') {
-          addMessage(msg.content, msg.role === 'user');
-        } else {
-          // Convert content blocks to IStreamEvent array
-          const events: IStreamEvent[] = msg.content.map(block => {
-            if ('text' in block) {
-              return {
-                type: 'text',
-                text: block.text
-              } as IStreamEvent;
-            } else if (block.type === 'tool_use') {
-              return {
-                type: 'tool_use',
-                name: block.name,
-                input: block.input as Record<string, unknown>
-              } as IStreamEvent;
-            } else if (block.type === 'tool_result') {
-              return {
-                type: 'tool_result',
-                content: JSON.stringify(block.content)
-              } as IStreamEvent;
-            } else if (block.type === 'thinking') {
-              return {
-                type: 'thinking_delta',
-                thinking: block.thinking as string,
-                thinking_complete: true
-              } as IStreamEvent;
-            }
-            return {
-              type: 'text',
-              text: 'Unsupported content type'
-            } as IStreamEvent;
-          });
-          addMessage(events, msg.role === 'user');
+
+      // Process messages and group related sequences into visual messages
+      let i = 0;
+      while (i < messages.length) {
+        const msg = messages[i];
+
+        // Handle regular user messages (not tool results)
+        if (
+          msg.role === 'user' &&
+          (typeof msg.content === 'string' ||
+            (Array.isArray(msg.content) &&
+              !msg.content.some(block => block.type === 'tool_result')))
+        ) {
+          if (typeof msg.content === 'string') {
+            addMessage(msg.content, true);
+          }
+          i++;
+          continue;
         }
-      });
+
+        // If this is an assistant message, we start a new visual message that might include multiple
+        // logical messages (assistant content, tool results, and subsequent assistant responses)
+        if (msg.role === 'assistant') {
+          // Create a message container for this assistant sequence
+          const messageDiv = document.createElement('div');
+          messageDiv.classList.add('mcp-message', 'assistant');
+          chatArea.appendChild(messageDiv);
+
+          // Variables to track state while processing this sequence
+          let currentTextBlock: HTMLDivElement | null = null;
+          let thinkingBlock: HTMLDivElement | null = null;
+          let currentMessageIndex = i;
+
+          // Process the entire sequence until we find a non-tool-result user message
+          while (currentMessageIndex < messages.length) {
+            const currentMsg = messages[currentMessageIndex];
+
+            // If we hit a user message that is NOT a tool result, stop the sequence
+            if (
+              currentMsg.role === 'user' &&
+              (typeof currentMsg.content === 'string' ||
+                (Array.isArray(currentMsg.content) &&
+                  !currentMsg.content.some(
+                    block => block.type === 'tool_result'
+                  )))
+            ) {
+              break;
+            }
+
+            // Process content blocks from this message
+            if (Array.isArray(currentMsg.content)) {
+              currentMsg.content.forEach(block => {
+                if ('text' in block) {
+                  // Create text block if it doesn't exist
+                  if (!currentTextBlock) {
+                    currentTextBlock = document.createElement('div');
+                    currentTextBlock.classList.add('mcp-message-markdown');
+                    messageDiv.appendChild(currentTextBlock);
+                  }
+
+                  // Render markdown for text
+                  const widget = rendermime.createRenderer('text/markdown');
+                  widget.renderModel({
+                    data: { 'text/markdown': block.text },
+                    trusted: true,
+                    metadata: {},
+                    setData: () => {
+                      /* Required but not used */
+                    }
+                  });
+                  currentTextBlock.innerHTML = '';
+                  currentTextBlock.appendChild(widget.node);
+                } else if (block.type === 'thinking') {
+                  // Create thinking block
+                  thinkingBlock = document.createElement('div');
+                  thinkingBlock.classList.add('mcp-thinking-block');
+
+                  // Create header with expand/collapse button
+                  const header = document.createElement('div');
+                  header.classList.add('mcp-thinking-header');
+
+                  // Create header text in a span so we can add click handler
+                  const headerText = document.createElement('span');
+                  headerText.classList.add('mcp-thinking-title');
+                  headerText.textContent = 'Thoughts';
+
+                  // Allow clicking the header text to expand/collapse
+                  headerText.style.cursor = 'pointer';
+                  headerText.onclick = () => {
+                    const isExpanded =
+                      thinkingBlock!.classList.toggle('expanded');
+                    toggleButton.textContent = isExpanded
+                      ? 'Collapse'
+                      : 'Expand';
+                  };
+
+                  header.appendChild(headerText);
+
+                  const toggleButton = document.createElement('button');
+                  toggleButton.classList.add('mcp-thinking-toggle');
+                  toggleButton.textContent = 'Expand';
+                  toggleButton.onclick = () => {
+                    const isExpanded =
+                      thinkingBlock!.classList.toggle('expanded');
+                    toggleButton.textContent = isExpanded
+                      ? 'Collapse'
+                      : 'Expand';
+                  };
+
+                  header.appendChild(toggleButton);
+                  thinkingBlock.appendChild(header);
+
+                  // Create content container with preserved formatting
+                  const content = document.createElement('pre');
+                  content.classList.add('mcp-thinking-content');
+                  content.textContent = block.thinking as string;
+                  thinkingBlock.appendChild(content);
+
+                  // Add to message div
+                  messageDiv.appendChild(thinkingBlock);
+                } else if (block.type === 'tool_use') {
+                  currentTextBlock = null;
+
+                  const blockDiv = document.createElement('div');
+                  blockDiv.classList.add('tool-use');
+                  blockDiv.textContent = `[Using tool: ${block.name}]`;
+                  messageDiv.appendChild(blockDiv);
+                } else if (block.type === 'tool_result') {
+                  currentTextBlock = null;
+                  const blockDiv = document.createElement('div');
+                  blockDiv.classList.add('tool-result');
+
+                  // Create header with expand/collapse button
+                  const header = document.createElement('div');
+                  header.classList.add('tool-result-header');
+                  header.textContent = 'Tool Result';
+
+                  const toggleButton = document.createElement('button');
+                  toggleButton.classList.add('tool-result-toggle');
+                  toggleButton.textContent = 'Expand';
+                  toggleButton.onclick = () => {
+                    const isExpanded = blockDiv.classList.toggle('expanded');
+                    toggleButton.textContent = isExpanded
+                      ? 'Collapse'
+                      : 'Expand';
+                  };
+                  header.appendChild(toggleButton);
+                  blockDiv.appendChild(header);
+
+                  // Create content container with preserved formatting
+                  const content = document.createElement('pre');
+                  content.style.margin = '0';
+                  content.style.whiteSpace = 'pre-wrap';
+                  content.textContent = JSON.stringify(block.content, null, 2);
+                  blockDiv.appendChild(content);
+                  messageDiv.appendChild(blockDiv);
+                }
+              });
+            }
+
+            // Move to the next message in the sequence
+            currentMessageIndex++;
+          }
+
+          // Update the main loop counter to either the user message or the end of the messages
+          i = currentMessageIndex;
+
+          // Ensure the chat scrolls to show the latest message
+          chatArea.scrollTop = chatArea.scrollHeight;
+        } else {
+          // Skip any other message type
+          i++;
+        }
+      }
     };
 
     // Create toolbar
@@ -600,151 +736,23 @@ const plugin: JupyterFrontEndPlugin<void> = {
     const sendButton = document.createElement('button');
     sendButton.classList.add('mcp-send-button');
 
-    // Handle chat messages
-    const addMessage = (content: string | IStreamEvent[], isUser: boolean) => {
+    // Handle chat messages (used only for string content and user messages)
+    const addMessage = (content: string, isUser: boolean) => {
       const messageDiv = document.createElement('div');
       messageDiv.classList.add('mcp-message');
       messageDiv.classList.add(isUser ? 'user' : 'assistant');
 
-      if (typeof content === 'string') {
-        // Render markdown for string content
-        const widget = rendermime.createRenderer('text/markdown');
-        widget.renderModel({
-          data: { 'text/markdown': content },
-          trusted: true,
-          metadata: {},
-          setData: () => {
-            /* Required but not used */
-          }
-        });
-        messageDiv.appendChild(widget.node);
-      } else {
-        // Track if a thinking block already exists in this message
-        let thinkingBlock: HTMLDivElement | null = null;
-        let thinkingContent = '';
-
-        // Handle content blocks
-        content.forEach(block => {
-          const blockDiv = document.createElement('div');
-
-          switch (block.type) {
-            case 'text': {
-              // Render markdown for text blocks
-              const widget = rendermime.createRenderer('text/markdown');
-              widget.renderModel({
-                data: { 'text/markdown': block.text || '' },
-                trusted: true,
-                metadata: {},
-                setData: () => {
-                  /* Required but not used */
-                }
-              });
-              blockDiv.appendChild(widget.node);
-              messageDiv.appendChild(blockDiv);
-              break;
-            }
-            case 'thinking_delta': {
-              // If thinking block doesn't exist yet, create it
-              if (!thinkingBlock) {
-                thinkingBlock = document.createElement('div');
-                thinkingBlock.classList.add('mcp-thinking-block');
-
-                // Create header with expand/collapse button
-                const header = document.createElement('div');
-                header.classList.add('mcp-thinking-header');
-
-                // Create header text in a span so we can add click handler
-                const headerText = document.createElement('span');
-                headerText.classList.add('mcp-thinking-title');
-                headerText.textContent = block.thinking_complete
-                  ? 'Thoughts'
-                  : 'Thinking...';
-
-                // Allow clicking the header text to expand/collapse
-                headerText.style.cursor = 'pointer';
-                headerText.onclick = () => {
-                  const isExpanded =
-                    thinkingBlock!.classList.toggle('expanded');
-                  toggleButton.textContent = isExpanded ? 'Collapse' : 'Expand';
-                };
-
-                header.appendChild(headerText);
-
-                const toggleButton = document.createElement('button');
-                toggleButton.classList.add('mcp-thinking-toggle');
-                toggleButton.textContent = 'Expand';
-                toggleButton.onclick = () => {
-                  const isExpanded =
-                    thinkingBlock!.classList.toggle('expanded');
-                  toggleButton.textContent = isExpanded ? 'Collapse' : 'Expand';
-                };
-
-                header.appendChild(toggleButton);
-                thinkingBlock.appendChild(header);
-
-                // Create content container with preserved formatting
-                const content = document.createElement('pre');
-                content.classList.add('mcp-thinking-content');
-                thinkingBlock.appendChild(content);
-
-                // Add to message div
-                messageDiv.appendChild(thinkingBlock);
-              }
-
-              // Update thinking content
-              thinkingContent += block.thinking || '';
-              const contentEl = thinkingBlock.querySelector(
-                '.mcp-thinking-content'
-              ) as HTMLPreElement;
-              if (contentEl) {
-                contentEl.textContent = thinkingContent;
-              }
-              break;
-            }
-            case 'tool_use': {
-              blockDiv.textContent = `[Using tool: ${block.name}]`;
-              blockDiv.classList.add('tool-use');
-              messageDiv.appendChild(blockDiv);
-              break;
-            }
-            case 'tool_result': {
-              blockDiv.classList.add('tool-result');
-              if (block.is_error) {
-                blockDiv.classList.add('error');
-              }
-
-              // Create header with expand/collapse button
-              const header = document.createElement('div');
-              header.classList.add('tool-result-header');
-              header.textContent = 'Tool Result';
-
-              const toggleButton = document.createElement('button');
-              toggleButton.classList.add('tool-result-toggle');
-              toggleButton.textContent = 'Expand';
-              toggleButton.onclick = () => {
-                const isExpanded = blockDiv.classList.toggle('expanded');
-                toggleButton.textContent = isExpanded ? 'Collapse' : 'Expand';
-              };
-              header.appendChild(toggleButton);
-              blockDiv.appendChild(header);
-
-              // Create content container
-              const content = document.createElement('div');
-              content.textContent =
-                typeof block.content === 'string'
-                  ? block.content
-                  : JSON.stringify(block.content, null, 2);
-              blockDiv.appendChild(content);
-              messageDiv.appendChild(blockDiv);
-              break;
-            }
-            default: {
-              blockDiv.textContent = 'Unsupported content type';
-              messageDiv.appendChild(blockDiv);
-            }
-          }
-        });
-      }
+      // Render markdown for string content
+      const widget = rendermime.createRenderer('text/markdown');
+      widget.renderModel({
+        data: { 'text/markdown': content },
+        trusted: true,
+        metadata: {},
+        setData: () => {
+          /* Required but not used */
+        }
+      });
+      messageDiv.appendChild(widget.node);
 
       chatArea.appendChild(messageDiv);
       chatArea.scrollTop = chatArea.scrollHeight;
@@ -789,7 +797,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           notebookPath,
           activeCellID
         })) {
-          let blockDiv = document.createElement('div');
+          let blockDiv: HTMLElement;
 
           switch (block.type) {
             case 'text': {
@@ -829,7 +837,21 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 // Create header with expand/collapse button
                 const header = document.createElement('div');
                 header.classList.add('mcp-thinking-header');
-                header.textContent = 'Thinking...';
+
+                // Create header text in a span so we can add click handler
+                const headerText = document.createElement('span');
+                headerText.classList.add('mcp-thinking-title');
+                headerText.textContent = 'Thinking...';
+
+                // Allow clicking the header text to expand/collapse
+                headerText.style.cursor = 'pointer';
+                headerText.onclick = () => {
+                  const isExpanded =
+                    thinkingBlock!.classList.toggle('expanded');
+                  toggleButton.textContent = isExpanded ? 'Collapse' : 'Expand';
+                };
+
+                header.appendChild(headerText);
 
                 const toggleButton = document.createElement('button');
                 toggleButton.classList.add('mcp-thinking-toggle');

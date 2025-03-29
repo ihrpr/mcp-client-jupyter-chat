@@ -618,7 +618,36 @@ Your final output should consist only of the assistance in the format specified 
                   if ('text' in block) {
                     return { type: 'text', text: block.text };
                   }
-                  // Convert complex types to a serializable format
+
+                  // Handle thinking blocks specially
+                  if (block.type === 'thinking') {
+                    return {
+                      type: 'thinking',
+                      thinking: block.thinking,
+                      signature: block.signature
+                    };
+                  }
+
+                  // Handle tool use blocks specially
+                  if (block.type === 'tool_use') {
+                    return {
+                      type: 'tool_use',
+                      id: block.id,
+                      name: block.name,
+                      input: JSON.parse(JSON.stringify(block.input))
+                    };
+                  }
+
+                  // Handle tool result blocks specially
+                  if (block.type === 'tool_result') {
+                    return {
+                      type: 'tool_result',
+                      tool_use_id: block.tool_use_id,
+                      content: JSON.parse(JSON.stringify(block.content))
+                    };
+                  }
+
+                  // Convert complex types to a serializable format for other block types
                   const serialized: ISerializedContentBlock = {
                     type: block.type,
                     ...Object.entries(block).reduce(
@@ -693,6 +722,25 @@ Your final output should consist only of the assistance in the format specified 
                       type: 'text',
                       text: block.text
                     } as Anthropic.TextBlockParam;
+                  } else if (block.type === 'thinking') {
+                    return {
+                      type: 'thinking',
+                      thinking: block.thinking,
+                      signature: block.signature
+                    } as Anthropic.ThinkingBlockParam;
+                  } else if (block.type === 'tool_use') {
+                    return {
+                      type: 'tool_use',
+                      id: block.id,
+                      name: block.name,
+                      input: block.input
+                    } as Anthropic.ToolUseBlockParam;
+                  } else if (block.type === 'tool_result') {
+                    return {
+                      type: 'tool_result',
+                      tool_use_id: block.tool_use_id,
+                      content: block.content
+                    } as Anthropic.ToolResultBlockParam;
                   }
                   // Handle other block types as needed
                   return block as Anthropic.ContentBlockParam;
