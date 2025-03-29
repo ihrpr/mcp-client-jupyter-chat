@@ -1,7 +1,13 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { IStreamEvent } from '../types';
 import { AssistantService } from '../services/assistantService';
+import {
+  ThinkingBlock,
+  ToolUse,
+  ToolResult,
+  MarkdownContent
+} from './MessageComponents';
 
 interface IChatAreaProps {
   assistant: AssistantService | null;
@@ -87,7 +93,7 @@ export const StreamingResponse = ({
         const placeholderKey = 'tool_use_placeholder';
         if (!processedBlocks[placeholderKey]) {
           processedBlocks[placeholderKey] = {
-            name: 'Tool',
+            name: block.name || 'Tool',
             streamingInput: block.partial_json,
             isStreaming: true
           };
@@ -136,12 +142,12 @@ export const StreamingResponse = ({
   if (processedBlocks['tool_use_placeholder']) {
     const placeholder = processedBlocks['tool_use_placeholder'];
     toolElements.push(
-      <div key="tool_use_placeholder" className="tool-use">
-        <div className="tool-use-header">Using tool: {placeholder.name}</div>
-        <pre className="tool-use-input streaming-input">
-          {placeholder.streamingInput}
-        </pre>
-      </div>
+      <ToolUse
+        key="tool_use_placeholder"
+        name={placeholder.name}
+        streamingInput={placeholder.streamingInput}
+        isStreaming={true}
+      />
     );
   }
 
@@ -149,22 +155,16 @@ export const StreamingResponse = ({
   Object.entries(processedBlocks).forEach(([key, value]) => {
     if (key.startsWith('tool_use_') && key !== 'tool_use_placeholder') {
       // Display tool use with streaming input if available
-      const toolInput = value.parsedInput || value.input || {};
       const isStreaming = value.streamingInput && !value.inputComplete;
 
       toolElements.push(
-        <div key={key} className="tool-use">
-          <div className="tool-use-header">Using tool: {value.name}</div>
-          {isStreaming || Object.keys(toolInput).length > 0 ? (
-            <pre
-              className={`tool-use-input ${isStreaming ? 'streaming-input' : ''}`}
-            >
-              {isStreaming
-                ? value.streamingInput
-                : JSON.stringify(toolInput, null, 2)}
-            </pre>
-          ) : null}
-        </div>
+        <ToolUse
+          key={key}
+          name={value.name}
+          input={value.parsedInput || value.input}
+          streamingInput={value.streamingInput}
+          isStreaming={isStreaming}
+        />
       );
     } else if (key.startsWith('tool_result_')) {
       toolElements.push(
@@ -188,96 +188,6 @@ export const StreamingResponse = ({
   return (
     <div className="mcp-message assistant" ref={messageRef}>
       {renderableContent}
-    </div>
-  );
-};
-
-interface IMarkdownContentProps {
-  content: string;
-  rendermime: IRenderMimeRegistry;
-}
-
-const MarkdownContent = ({ content, rendermime }: IMarkdownContentProps) => {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (containerRef.current) {
-      const widget = rendermime.createRenderer('text/markdown');
-      widget.renderModel({
-        data: { 'text/markdown': content },
-        trusted: true,
-        metadata: {},
-        setData: () => {
-          /* Required but not used */
-        }
-      });
-
-      containerRef.current.innerHTML = '';
-      containerRef.current.appendChild(widget.node);
-    }
-  }, [content, rendermime]);
-
-  return <div className="mcp-message-markdown" ref={containerRef} />;
-};
-
-interface IThinkingBlockProps {
-  content: string;
-  complete?: boolean;
-}
-
-const ThinkingBlock = ({ content, complete = false }: IThinkingBlockProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const toggleExpand = () => {
-    setIsExpanded(!isExpanded);
-  };
-
-  return (
-    <div className={`mcp-thinking-block ${isExpanded ? 'expanded' : ''}`}>
-      <div className="mcp-thinking-header">
-        <span
-          className="mcp-thinking-title"
-          style={{ cursor: 'pointer' }}
-          onClick={toggleExpand}
-        >
-          {complete ? 'Thoughts' : 'Thinking...'}
-        </span>
-        <button className="mcp-thinking-toggle" onClick={toggleExpand}>
-          {isExpanded ? 'Collapse' : 'Expand'}
-        </button>
-      </div>
-      <pre className="mcp-thinking-content">{content}</pre>
-    </div>
-  );
-};
-
-interface IToolResultProps {
-  content: string | any;
-  isError?: boolean;
-}
-
-const ToolResult = ({ content, isError = false }: IToolResultProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const toggleExpand = () => {
-    setIsExpanded(!isExpanded);
-  };
-
-  return (
-    <div
-      className={`tool-result ${isExpanded ? 'expanded' : ''} ${isError ? 'error' : ''}`}
-    >
-      <div className="tool-result-header">
-        Tool Result
-        <button className="tool-result-toggle" onClick={toggleExpand}>
-          {isExpanded ? 'Collapse' : 'Expand'}
-        </button>
-      </div>
-      <pre style={{ margin: '0', whiteSpace: 'pre-wrap' }}>
-        {typeof content === 'string'
-          ? content
-          : JSON.stringify(content, null, 2)}
-      </pre>
     </div>
   );
 };
