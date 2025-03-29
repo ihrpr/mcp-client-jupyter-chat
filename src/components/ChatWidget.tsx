@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { IStateDB } from '@jupyterlab/statedb';
@@ -11,7 +11,8 @@ import {
 import { AssistantService } from '../services/assistantService';
 import { McpService } from '../services/mcpService';
 import { Toolbar } from './Toolbar';
-import { ChatArea, StreamingResponse } from './ChatArea';
+import { StreamingResponse } from './ChatArea';
+import { ChatMessage } from './ChatMessage';
 import { ChatList } from './ChatList';
 import { InputArea } from './InputArea';
 
@@ -39,11 +40,19 @@ export const ChatWidget = ({
   const [isConnecting, setIsConnecting] = useState(false);
   const [isShowingHistory, setIsShowingHistory] = useState(false);
   const [streamingBlocks, setStreamingBlocks] = useState<IStreamEvent[]>([]);
+  const chatAreaRef = useRef<HTMLDivElement>(null);
 
   // Initialize connections
   useEffect(() => {
     initializeConnections();
   }, [selectedModel, settingsData]);
+
+  // Auto-scroll to bottom when streaming blocks update
+  useEffect(() => {
+    if (chatAreaRef.current && streamingBlocks.length > 0) {
+      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+    }
+  }, [streamingBlocks]);
 
   const initializeConnections = async () => {
     if (isConnecting || !selectedModel) {
@@ -95,6 +104,103 @@ export const ChatWidget = ({
       notebookPath: notebookTracker.currentWidget?.context.path,
       activeCellID: notebookTracker.currentWidget?.content.activeCell?.model.id
     };
+  };
+
+  // Display current chat messages
+  const displayCurrentChat = () => {
+    if (!assistant) {
+      return <div className="mcp-no-messages">No messages yet</div>;
+    }
+
+    const messages = assistant.getCurrentChat();
+    const processedMessages: JSX.Element[] = [];
+
+    // Process messages and group related sequences into visual messages
+    let i = 0;
+    while (i < messages.length) {
+      const msg = messages[i];
+
+      // Handle regular user messages (not tool results)
+      if (
+        msg.role === 'user' &&
+        (typeof msg.content === 'string' ||
+          (Array.isArray(msg.content) &&
+            !msg.content.some(block => block.type === 'tool_result')))
+      ) {
+        if (typeof msg.content === 'string') {
+          processedMessages.push(
+            <ChatMessage
+              key={`user-${i}`}
+              role="user"
+              content={[{ type: 'text', text: msg.content }]}
+              rendermime={rendermime}
+            />
+          );
+        } else if (Array.isArray(msg.content)) {
+          processedMessages.push(
+            <ChatMessage
+              key={`user-${i}`}
+              role="user"
+              content={msg.content}
+              rendermime={rendermime}
+            />
+          );
+        }
+        i++;
+        continue;
+      }
+
+      // If this is an assistant message, we start a new visual message
+      if (msg.role === 'assistant') {
+        // Variables to track state while processing this sequence
+        let currentMessageIndex = i;
+        let sequenceContent: any[] = [];
+
+        // Process the entire sequence until we find a non-tool-result user message
+        while (currentMessageIndex < messages.length) {
+          const currentMsg = messages[currentMessageIndex];
+
+          // If we hit a user message that is NOT a tool result, stop the sequence
+          if (
+            currentMsg.role === 'user' &&
+            (typeof currentMsg.content === 'string' ||
+              (Array.isArray(currentMsg.content) &&
+                !currentMsg.content.some(
+                  block => block.type === 'tool_result'
+                )))
+          ) {
+            break;
+          }
+
+          // Process content blocks from this message
+          if (Array.isArray(currentMsg.content)) {
+            sequenceContent = [...sequenceContent, ...currentMsg.content];
+          } else if (typeof currentMsg.content === 'string') {
+            sequenceContent.push({ type: 'text', text: currentMsg.content });
+          }
+
+          // Move to the next message in the sequence
+          currentMessageIndex++;
+        }
+
+        processedMessages.push(
+          <ChatMessage
+            key={`assistant-${i}`}
+            role="assistant"
+            content={sequenceContent}
+            rendermime={rendermime}
+          />
+        );
+
+        // Update the main loop counter
+        i = currentMessageIndex;
+      } else {
+        // Skip any other message type
+        i++;
+      }
+    }
+
+    return processedMessages;
   };
 
   // Handle sending a message
@@ -152,8 +258,8 @@ export const ChatWidget = ({
         />
       ) : (
         // Show normal chat area
-        <>
-          <ChatArea assistant={assistant} rendermime={rendermime} />
+        <div className="mcp-chat-area" ref={chatAreaRef}>
+          {displayCurrentChat()}
 
           {/* Display streaming response if there is any */}
           {streamingBlocks.length > 0 && (
@@ -162,7 +268,7 @@ export const ChatWidget = ({
               rendermime={rendermime}
             />
           )}
-        </>
+        </div>
       )}
 
       <InputArea

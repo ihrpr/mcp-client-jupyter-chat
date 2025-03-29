@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
-import { ChatMessage } from './ChatMessage';
 import { IStreamEvent } from '../types';
 import { AssistantService } from '../services/assistantService';
 
@@ -9,120 +8,9 @@ interface IChatAreaProps {
   rendermime: IRenderMimeRegistry;
 }
 
+// ChatArea has been refactored and its functionality is now in ChatWidget
 export const ChatArea = ({ assistant, rendermime }: IChatAreaProps) => {
-  const chatAreaRef = useRef<HTMLDivElement>(null);
-
-  // Scroll to bottom when new messages are added
-  useEffect(() => {
-    if (chatAreaRef.current) {
-      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
-    }
-  });
-
-  const displayCurrentChat = () => {
-    if (!assistant) {
-      return <div className="mcp-no-messages">No messages yet</div>;
-    }
-
-    const messages = assistant.getCurrentChat();
-    const processedMessages: JSX.Element[] = [];
-
-    // Process messages and group related sequences into visual messages
-    let i = 0;
-    while (i < messages.length) {
-      const msg = messages[i];
-
-      // Handle regular user messages (not tool results)
-      if (
-        msg.role === 'user' &&
-        (typeof msg.content === 'string' ||
-          (Array.isArray(msg.content) &&
-            !msg.content.some(block => block.type === 'tool_result')))
-      ) {
-        if (typeof msg.content === 'string') {
-          processedMessages.push(
-            <ChatMessage
-              key={`user-${i}`}
-              role="user"
-              content={[{ type: 'text', text: msg.content }]}
-              rendermime={rendermime}
-            />
-          );
-        } else if (Array.isArray(msg.content)) {
-          processedMessages.push(
-            <ChatMessage
-              key={`user-${i}`}
-              role="user"
-              content={msg.content}
-              rendermime={rendermime}
-            />
-          );
-        }
-        i++;
-        continue;
-      }
-
-      // If this is an assistant message, we start a new visual message that might include multiple
-      // logical messages (assistant content, tool results, and subsequent assistant responses)
-      if (msg.role === 'assistant') {
-        // Variables to track state while processing this sequence
-        let currentMessageIndex = i;
-        let sequenceContent: any[] = [];
-
-        // Process the entire sequence until we find a non-tool-result user message
-        while (currentMessageIndex < messages.length) {
-          const currentMsg = messages[currentMessageIndex];
-
-          // If we hit a user message that is NOT a tool result, stop the sequence
-          if (
-            currentMsg.role === 'user' &&
-            (typeof currentMsg.content === 'string' ||
-              (Array.isArray(currentMsg.content) &&
-                !currentMsg.content.some(
-                  block => block.type === 'tool_result'
-                )))
-          ) {
-            break;
-          }
-
-          // Process content blocks from this message
-          if (Array.isArray(currentMsg.content)) {
-            sequenceContent = [...sequenceContent, ...currentMsg.content];
-          } else if (typeof currentMsg.content === 'string') {
-            sequenceContent.push({ type: 'text', text: currentMsg.content });
-          }
-
-          // Move to the next message in the sequence
-          currentMessageIndex++;
-        }
-
-        processedMessages.push(
-          <ChatMessage
-            key={`assistant-${i}`}
-            role="assistant"
-            content={sequenceContent}
-            rendermime={rendermime}
-          />
-        );
-
-        // Update the main loop counter to either the user message or the end of the messages
-        i = currentMessageIndex;
-      } else {
-        // Skip any other message type
-        i++;
-      }
-    }
-
-    return processedMessages;
-  };
-
-  // ChatList component is implemented in ChatWidget
-
-  return (
-    <div className="mcp-chat-area" ref={chatAreaRef}>
-      {displayCurrentChat()}
-    </div>
-  );
+  return null; // This component is deprecated - keeping it to avoid breaking imports
 };
 
 // Component to handle streaming responses
@@ -136,6 +24,16 @@ export const StreamingResponse = ({
   rendermime
 }: IStreamingResponseProps) => {
   const messageRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to show the latest content
+  useEffect(() => {
+    if (messageRef.current) {
+      const chatArea = messageRef.current.closest('.mcp-chat-area');
+      if (chatArea) {
+        chatArea.scrollTop = chatArea.scrollHeight;
+      }
+    }
+  }, [blocks]);
 
   // Group related blocks together for rendering
   const processedBlocks: Record<string, any> = {};
@@ -171,16 +69,7 @@ export const StreamingResponse = ({
   // Convert processed blocks into renderable content
   const renderableContent: JSX.Element[] = [];
 
-  if (processedBlocks['text']) {
-    renderableContent.push(
-      <MarkdownContent
-        key="text"
-        content={processedBlocks['text']}
-        rendermime={rendermime}
-      />
-    );
-  }
-
+  // Natural ordering: thinking first
   if (processedBlocks['thinking']) {
     renderableContent.push(
       <ThinkingBlock
@@ -191,23 +80,36 @@ export const StreamingResponse = ({
     );
   }
 
-  // Add tool uses and results
+  // Then tool uses and results
+  const toolElements: JSX.Element[] = [];
   Object.entries(processedBlocks).forEach(([key, value]) => {
     if (key.startsWith('tool_use_')) {
-      renderableContent.push(
+      toolElements.push(
         <div key={key} className="tool-use">
           [Using tool: {value.name}]
         </div>
       );
     } else if (key.startsWith('tool_result_')) {
-      renderableContent.push(
+      toolElements.push(
         <ToolResult key={key} content={value.content} isError={value.isError} />
       );
     }
   });
+  renderableContent.push(...toolElements);
+
+  // Text appears last, after thinking and tool executions
+  if (processedBlocks['text']) {
+    renderableContent.push(
+      <MarkdownContent
+        key="text"
+        content={processedBlocks['text']}
+        rendermime={rendermime}
+      />
+    );
+  }
 
   return (
-    <div className="mcp-message assistant" ref={messageRef}>
+    <div className="mcp-streaming-response" ref={messageRef}>
       {renderableContent}
     </div>
   );
