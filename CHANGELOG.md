@@ -2,6 +2,24 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.1.7
+
+([Full Changelog](https://github.com/ihrpr/mcp-client-jupyter-chat/compare/v0.1.6...033da80e1b8ccca0cfc8389460a3e068d064d086))
+
+### Enhancements made
+
+- Refactor messages [#16](https://github.com/ihrpr/mcp-client-jupyter-chat/pull/16) ([@ihrpr](https://github.com/ihrpr))
+- Claude37 [#15](https://github.com/ihrpr/mcp-client-jupyter-chat/pull/15) ([@ihrpr](https://github.com/ihrpr))
+- System prompt [#14](https://github.com/ihrpr/mcp-client-jupyter-chat/pull/14) ([@ihrpr](https://github.com/ihrpr))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/ihrpr/mcp-client-jupyter-chat/graphs/contributors?from=2025-03-26&to=2025-03-30&type=c))
+
+[@github-actions](https://github.com/search?q=repo%3Aihrpr%2Fmcp-client-jupyter-chat+involves%3Agithub-actions+updated%3A2025-03-26..2025-03-30&type=Issues) | [@ihrpr](https://github.com/search?q=repo%3Aihrpr%2Fmcp-client-jupyter-chat+involves%3Aihrpr+updated%3A2025-03-26..2025-03-30&type=Issues)
+
+<!-- <END NEW CHANGELOG ENTRY> -->
+
 ## 0.1.6
 
 ([Full Changelog](https://github.com/ihrpr/mcp-client-jupyter-chat/compare/v0.1.5...6f3eb5b31dde1c0e38b0ce522668cb400ab4d730))
@@ -20,8 +38,6 @@
 ([GitHub contributors page for this release](https://github.com/ihrpr/mcp-client-jupyter-chat/graphs/contributors?from=2025-02-18&to=2025-03-26&type=c))
 
 [@github-actions](https://github.com/search?q=repo%3Aihrpr%2Fmcp-client-jupyter-chat+involves%3Agithub-actions+updated%3A2025-02-18..2025-03-26&type=Issues) | [@ihrpr](https://github.com/search?q=repo%3Aihrpr%2Fmcp-client-jupyter-chat+involves%3Aihrpr+updated%3A2025-02-18..2025-03-26&type=Issues)
-
-<!-- <END NEW CHANGELOG ENTRY> -->
 
 ## 0.1.5
 
