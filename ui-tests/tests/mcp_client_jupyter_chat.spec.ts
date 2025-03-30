@@ -76,7 +76,8 @@ test('should emit an activation console message', async ({ page }) => {
     logs.push(message.text());
   });
 
-  await page.goto();
+  // Add ?reset to URL to trigger browser check mode with minimal initialization
+  await page.goto('http://localhost:8888/lab?reset');
 
   // Check for activation message
   expect(
